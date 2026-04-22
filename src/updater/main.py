@@ -16,14 +16,17 @@ import importlib.metadata
 import re
 import subprocess
 import sys
+import tomllib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from packaging.version import Version, InvalidVersion
 
-DEFAULT_SOURCE = r"\\pnt52\研發本部_技術服務處\技術服務處\DS-TA\Test_Matrix\packages"
+_CONFIG_FILE = "updater.toml"
 
-MANAGED_PACKAGES = [
+_BUILTIN_SOURCE = r"\\pnt52\研發本部_技術服務處\技術服務處\DS-TA\Test_Matrix\packages"
+
+_BUILTIN_PACKAGES = [
     "test-matrix",
     "scope_driver",
     "source_driver",
@@ -42,6 +45,20 @@ MANAGED_PACKAGES = [
     "am_report_generator",
     "visa_bundle",
 ]
+
+
+def _load_config() -> dict:  # type: ignore[type-arg]
+    """Load updater.toml from beside the executable; returns empty dict if not found."""
+    config_path = Path(sys.argv[0]).resolve().parent / _CONFIG_FILE
+    if not config_path.exists():
+        return {}
+    with open(config_path, "rb") as f:
+        return tomllib.load(f)
+
+
+_cfg = _load_config().get("updater", {})
+DEFAULT_SOURCE: str = _cfg.get("source", _BUILTIN_SOURCE)
+MANAGED_PACKAGES: list[str] = _cfg.get("packages", _BUILTIN_PACKAGES)
 
 
 def normalize_name(name: str) -> str:

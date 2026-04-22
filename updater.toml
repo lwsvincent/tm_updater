@@ -1,0 +1,21 @@
+[updater]
+source = '\\pnt52\研發本部_技術服務處\技術服務處\DS-TA\Test_Matrix\packages'
+packages = [
+    "test-matrix",
+    "scope_driver",
+    "source_driver",
+    "load_driver",
+    "meter_driver",
+    "daq_driver",
+    "chamber_driver",
+    "gpio_driver",
+    "i2c_driver",
+    "dc_power_supply_driver",
+    "multi_driver",
+    "subdevice",
+    "usb_hid",
+    "acbel_r90000",
+    "am_shared",
+    "am_report_generator",
+    "visa_bundle",
+]
