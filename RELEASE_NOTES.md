@@ -1,3 +1,22 @@
+# Release Notes - Updater v1.1.0
+
+## Overview
+
+Introduces a configuration file (`updater.toml`) so that the package source path and managed package list can be changed without recompiling the exe.
+
+## What's New
+
+### Configuration File Support
+- `updater.toml` placed beside `updater.exe` controls `source` and `packages`
+- Edit the file to change the PNT52 source path or add/remove managed packages
+- Falls back to built-in defaults when the file is absent
+
+## Upgrade Notes
+
+Copy `updater.toml` alongside `updater.exe` after deployment. No changes to CLI arguments or behavior when the file is not present.
+
+---
+
 # Release Notes - Updater v1.0.0
 
 ## Overview

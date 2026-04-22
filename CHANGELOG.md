@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-04-22
+
+### Added
+- `updater.toml` configuration file to externalize `DEFAULT_SOURCE` and `MANAGED_PACKAGES`
+- Config is loaded from next to the exe; built-in defaults apply when file is absent
+
 ## [1.0.0] - 2026-04-22
 
 ### Added
@@ -21,5 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Migrated updater.py from test_matrix root to independent Updater sub-project
 
-[Unreleased]: https://github.com/testmatrix/test-matrix/compare/updater-1.0.0...HEAD
+[Unreleased]: https://github.com/testmatrix/test-matrix/compare/updater-1.1.0...HEAD
+[1.1.0]: https://github.com/testmatrix/test-matrix/compare/updater-1.0.0...updater-1.1.0
 [1.0.0]: https://github.com/testmatrix/test-matrix/releases/tag/updater-1.0.0
