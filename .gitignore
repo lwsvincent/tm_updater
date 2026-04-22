@@ -13,3 +13,6 @@ dist/
 *.onefile-build/
 nuitka-crash-report.xml
 .DS_Store
+.superpowers/
+node_modules/
+src/updater/gui/frontend/dist/

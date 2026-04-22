@@ -19,3 +19,14 @@ packages = [
     "am_report_generator",
     "visa_bundle",
 ]
+
+[launcher]
+enabled = false
+executable = ""
+args = []
+mode = "on_success"
+auto_launch = false
+auto_update = false
+
+[gui]
+theme = "blueprint"
