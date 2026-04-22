@@ -48,7 +48,15 @@ echo.
     --output-filename=updater_gui.exe ^
     --output-dir="%OUTPUT_DIR%" ^
     --include-data-dir="%FRONTEND_DIR%\dist"=updater/gui/frontend/dist ^
-    --include-package=webview ^
+    --include-module=webview ^
+    --include-module=webview.platforms ^
+    --include-module=webview.platforms.edgechromium ^
+    --nofollow-import-to=webview.platforms.android ^
+    --nofollow-import-to=webview.platforms.gtk ^
+    --nofollow-import-to=webview.platforms.cocoa ^
+    --nofollow-import-to=webview.platforms.qt ^
+    --nofollow-import-to=webview.platforms.winforms ^
+    --disable-plugin=pywebview ^
     --include-package=packaging ^
     --windows-console-mode=disable ^
     --assume-yes-for-downloads ^
