@@ -1,0 +1,58 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0", "wheel"]
+
+[project]
+name = "updater"
+version = "1.0.0"
+description = "Standalone package updater for Test Matrix microservices"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+authors = [{ name = "Test Matrix Team", email = "testmatrix@example.com" }]
+maintainers = [{ name = "Test Matrix Team", email = "testmatrix@example.com" }]
+license = { text = "MIT" }
+keywords = ["updater", "package-management", "test-matrix"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: Microsoft :: Windows",
+]
+
+dependencies = [
+    "packaging>=22.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "nuitka>=1.0.0",
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+    "isort>=5.10.0",
+    "flake8>=5.0.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+updater = "updater.main:main"
+
+[project.urls]
+Homepage = "https://github.com/testmatrix/test-matrix"
+Repository = "https://github.com/testmatrix/test-matrix"
+Changelog = "https://github.com/testmatrix/test-matrix/blob/main/Updater/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.11"
+strict = true

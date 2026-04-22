@@ -1,0 +1,15 @@
+.venv/
+*.pyc
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+*.egg
+build/
+dist/
+*.dist/
+*.build/
+*.onefile-build/
+nuitka-crash-report.xml
+.DS_Store
