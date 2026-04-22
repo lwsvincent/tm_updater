@@ -25,6 +25,7 @@ class Api:
         self._config = config
         self._python_exe = python_exe
         self._window: webview.Window | None = None
+        self._update_lock = threading.Lock()
 
     def _set_window(self, window: webview.Window) -> None:
         self._window = window
@@ -68,8 +69,16 @@ class Api:
         ]
 
     def run_update(self) -> None:
-        thread = threading.Thread(target=self._do_update, daemon=True)
+        if not self._update_lock.acquire(blocking=False):
+            return
+        thread = threading.Thread(target=self._do_update_safe, daemon=True)
         thread.start()
+
+    def _do_update_safe(self) -> None:
+        try:
+            self._do_update()
+        finally:
+            self._update_lock.release()
 
     def _do_update(self) -> None:
         if self._python_exe is None:

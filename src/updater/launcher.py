@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 from updater.config import UpdaterConfig
@@ -30,7 +31,7 @@ def resolve_executable_path(executable: str, config_dir: Path) -> Path:
 
 def launch_executable(
     config: UpdaterConfig, python_exe: Path
-) -> subprocess.Popen[str]:
+) -> subprocess.Popen[bytes]:
     exe_path = resolve_executable_path(
         config.launcher.executable, config.config_dir
     )
@@ -43,12 +44,16 @@ def launch_executable(
     else:
         raise LauncherError(f"Unsupported executable type: {suffix}")
 
+    flags = 0
+    if sys.platform == "win32":
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+
     try:
         return subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=flags,
         )
     except PermissionError as exc:
         raise LauncherError(f"Permission denied: {exe_path} - {exc}") from exc

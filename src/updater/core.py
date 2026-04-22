@@ -220,6 +220,7 @@ def install_updates(
             if on_progress:
                 on_progress("error", f"{ps.name}: FAILED - {err}")
 
+    clear_pip_cache()
     return UpdateResult(total=len(to_update), updated=updated, failed=failed, failures=failures)
 
 

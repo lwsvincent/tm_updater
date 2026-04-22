@@ -60,6 +60,8 @@ async function launchApp() {
     const result = await window.pywebview.api.launch_app()
     if (!result.success) {
       store.isLaunching = false
+    } else {
+      setTimeout(() => { store.isLaunching = false }, 2000)
     }
   }
 }

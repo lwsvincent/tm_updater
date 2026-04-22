@@ -83,7 +83,7 @@ def load_config(toml_path: Path) -> UpdaterConfig:
         Populated UpdaterConfig instance.
     """
     if not toml_path.exists():
-        return UpdaterConfig(config_dir=toml_path.parent)
+        return UpdaterConfig(config_dir=toml_path.parent.resolve())
 
     with open(toml_path, "rb") as f:
         raw = tomllib.load(f)
