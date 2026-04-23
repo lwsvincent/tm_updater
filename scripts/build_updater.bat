@@ -52,4 +52,3 @@ if %ERRORLEVEL% neq 0 (
 
 echo.
 echo Build successful: %OUTPUT_DIR%\updater.exe
-pause
