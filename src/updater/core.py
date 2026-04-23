@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,8 +39,22 @@ class UpdateResult:
 
 ProgressCallback = Callable[[str, str], None]  # (level, message)
 
+# Package status constants
+STATUS_UP_TO_DATE = "up_to_date"
+STATUS_UPDATE_AVAILABLE = "update_available"
+STATUS_NOT_IN_SOURCE = "not_in_source"
+STATUS_NOT_INSTALLED = "not_installed"
+UPDATABLE_STATUSES = (STATUS_UPDATE_AVAILABLE, STATUS_NOT_INSTALLED)
 
 _pip_cache: dict[str, dict[str, str]] = {}
+
+
+def _get_subprocess_kwargs() -> dict:
+    """Return subprocess kwargs for Windows no-window behavior."""
+    kwargs: dict = {}
+    if sys.platform == "win32":
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+    return kwargs
 
 
 def get_installed_versions_batch(
@@ -53,6 +68,7 @@ def get_installed_versions_batch(
                 capture_output=True,
                 text=True,
                 timeout=30,
+                **_get_subprocess_kwargs(),
             )
             if result.returncode == 0:
                 packages = json.loads(result.stdout)
@@ -122,7 +138,7 @@ def check_updates(
                     name=pkg,
                     installed=installed,
                     available=None,
-                    status="not_in_source",
+                    status=STATUS_NOT_IN_SOURCE,
                 )
             )
             continue
@@ -135,7 +151,7 @@ def check_updates(
                     name=pkg,
                     installed=None,
                     available=avail_ver,
-                    status="not_installed",
+                    status=STATUS_NOT_INSTALLED,
                     whl_path=whl_path,
                 )
             )
@@ -148,7 +164,7 @@ def check_updates(
                         name=pkg,
                         installed=installed,
                         available=avail_ver,
-                        status="up_to_date",
+                        status=STATUS_UP_TO_DATE,
                     )
                 )
                 continue
@@ -160,7 +176,7 @@ def check_updates(
                 name=pkg,
                 installed=installed,
                 available=avail_ver,
-                status="update_available",
+                status=STATUS_UPDATE_AVAILABLE,
                 whl_path=whl_path,
             )
         )
@@ -183,6 +199,7 @@ def install_whl(whl_path: Path, python_exe: Path) -> tuple[bool, str]:
             capture_output=True,
             text=True,
             timeout=120,
+            **_get_subprocess_kwargs(),
         )
         if result.returncode == 0:
             return True, ""
@@ -198,7 +215,7 @@ def install_updates(
     python_exe: Path,
     on_progress: ProgressCallback | None = None,
 ) -> UpdateResult:
-    to_update = [s for s in statuses if s.status in ("update_available", "not_installed")]
+    to_update = [s for s in statuses if s.status in UPDATABLE_STATUSES]
     updated = 0
     failed = 0
     failures: list[str] = []

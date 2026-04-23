@@ -49,6 +49,8 @@ class LauncherConfig:
     mode: str = "on_success"
     auto_launch: bool = False
     auto_update: bool = False
+    auto_launch_enable: bool = False
+    auto_update_enable: bool = False
 
 
 @dataclass
@@ -72,19 +74,12 @@ class UpdaterConfig:
 def load_config(toml_path: Path) -> UpdaterConfig:
     """
     Load UpdaterConfig from a TOML file.
-
-    If the file does not exist, returns an UpdaterConfig with all built-in defaults.
-    Sections omitted from the TOML file fall back to their dataclass defaults.
-
-    Args:
-        toml_path: Absolute or relative path to updater.toml.
-
-    Returns:
-        Populated UpdaterConfig instance.
     """
     if not toml_path.exists():
+        print(f"[DEBUG] Config not found at: {toml_path}, using defaults")
         return UpdaterConfig(config_dir=toml_path.parent.resolve())
 
+    print(f"[DEBUG] Loading config from: {toml_path.resolve()}")
     with open(toml_path, "rb") as f:
         raw = tomllib.load(f)
 
@@ -99,6 +94,8 @@ def load_config(toml_path: Path) -> UpdaterConfig:
         mode=launcher_raw.get("mode", "on_success"),
         auto_launch=launcher_raw.get("auto_launch", False),
         auto_update=launcher_raw.get("auto_update", False),
+        auto_launch_enable=launcher_raw.get("auto_launch_enable", False),
+        auto_update_enable=launcher_raw.get("auto_update_enable", False),
     )
 
     gui = GuiConfig(
@@ -116,9 +113,20 @@ def load_config(toml_path: Path) -> UpdaterConfig:
 
 def find_config() -> Path:
     """
-    Locate updater.toml beside the running executable.
-
-    Returns the expected path whether or not it exists.
+    Locate updater.toml beside the running executable or in parent directories.
+    
+    Searches in:
+    1. The directory of the script/executable.
+    2. One level up (e.g., if running from a sub-package).
+    3. Two levels up (e.g., if running from src/updater/gui).
     """
-    exe_dir = Path(sys.argv[0]).resolve().parent
-    return exe_dir / CONFIG_FILENAME
+    start_dir = Path(sys.argv[0]).resolve().parent
+    
+    # Check current, parent, and grandparent directories
+    for dir_path in [start_dir, start_dir.parent, start_dir.parent.parent]:
+        candidate = dir_path / CONFIG_FILENAME
+        if candidate.exists():
+            return candidate
+            
+    # Fallback to the original behavior (beside executable) if not found
+    return start_dir / CONFIG_FILENAME
