@@ -9,6 +9,10 @@ const store = reactive({
   updateResult: null,
   isUpdating: false,
   isLaunching: false,
+  showVersionModal: false,
+  pendingVersionInstall: null, // {packageName: string, version: string}
+  versionsMap: {},       // { package_name: ["X.Y.Z", "A.B.C", ...] } sorted newest-first
+  selectedVersions: {},  // { package_name: "X.Y.Z" } user's current selection
 })
 
 let configResolver;
@@ -73,7 +77,27 @@ window.addEventListener('pywebviewready', async () => {
     store.packages = packages
   }
 
-  // 3. NOW trigger the scan from frontend
+  // 3. Load all versions for each package in parallel (fastest at cold start)
+  if (packages && packages.length) {
+    console.log('[DEBUG] Loading versions for', packages.length, 'package(s)...');
+    await Promise.all(packages.map(async (pkg) => {
+      try {
+        const versions = await window.pywebview.api.get_versions(pkg.name);
+        store.versionsMap[pkg.name] = versions || [];
+        // Default selection: first entry is newest (backend sorts newest-first)
+        store.selectedVersions[pkg.name] = (versions && versions.length > 0)
+          ? versions[0]
+          : (pkg.available || null);
+        console.log('[DEBUG] Versions for', pkg.name, ':', versions);
+      } catch (err) {
+        console.warn('[DEBUG] Failed to load versions for', pkg.name, ':', err);
+        store.versionsMap[pkg.name] = [];
+        store.selectedVersions[pkg.name] = pkg.available || null;
+      }
+    }));
+  }
+
+  // 4. NOW trigger the scan from frontend
   console.log('[DEBUG] Triggering check_for_updates from frontend');
   window.pywebview.api.check_for_updates()
 })

@@ -20,6 +20,7 @@
         <LogConsole />
       </div>
     </div>
+    <VersionConfirmModal />
   </div>
 </template>
 
@@ -28,6 +29,7 @@ import { inject, computed } from 'vue'
 import PackageTable from './components/PackageTable.vue'
 import ActionPanel from './components/ActionPanel.vue'
 import LogConsole from './components/LogConsole.vue'
+import VersionConfirmModal from './components/VersionConfirmModal.vue'
 
 const store = inject('store')
 
