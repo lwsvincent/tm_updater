@@ -214,6 +214,7 @@ def install_updates(
     statuses: list[PackageStatus],
     python_exe: Path,
     on_progress: ProgressCallback | None = None,
+    target_version: str | None = None,
 ) -> UpdateResult:
     to_update = [s for s in statuses if s.status in UPDATABLE_STATUSES]
     updated = 0
@@ -221,16 +222,43 @@ def install_updates(
     failures: list[str] = []
 
     for ps in to_update:
-        assert ps.whl_path is not None
         if on_progress:
             arrow = f"{ps.installed or 'not installed'} -> {ps.available}"
             on_progress("info", f"{ps.name}: {arrow} installing...")
 
-        ok, err = install_whl(ps.whl_path, python_exe)
+        if target_version:
+            # Uninstall existing version first
+            uninstall_cmd = [str(python_exe), "-m", "pip", "uninstall", "-y", ps.name]
+            uninstall_result = subprocess.run(
+                uninstall_cmd, capture_output=True, text=True, **_get_subprocess_kwargs()
+            )
+            if uninstall_result.returncode != 0:
+                if on_progress:
+                    on_progress(
+                        "error",
+                        f"{ps.name}: uninstall failed - {uninstall_result.stderr}",
+                    )
+                failed += 1
+                failures.append(f"{ps.name}: uninstall failed")
+                continue
+
+            # Install the specific target version
+            install_cmd = [
+                str(python_exe), "-m", "pip", "install", f"{ps.name}=={target_version}"
+            ]
+            install_result = subprocess.run(
+                install_cmd, capture_output=True, text=True, **_get_subprocess_kwargs()
+            )
+            ok = install_result.returncode == 0
+            err = install_result.stderr if not ok else ""
+        else:
+            assert ps.whl_path is not None
+            ok, err = install_whl(ps.whl_path, python_exe)
+
         if ok:
             updated += 1
             if on_progress:
-                on_progress("success", f"{ps.name}: updated to {ps.available}")
+                on_progress("success", f"{ps.name}: updated to {target_version or ps.available}")
         else:
             failed += 1
             failures.append(ps.name)
