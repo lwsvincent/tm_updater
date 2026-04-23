@@ -241,6 +241,41 @@ def install_updates(
     return UpdateResult(total=len(to_update), updated=updated, failed=failed, failures=failures)
 
 
+def get_all_versions(package_name: str, source_path: Path) -> list[str]:
+    """
+    Scan source directory for all available versions of a package.
+    Returns versions sorted newest-first.
+
+    Args:
+        package_name: Normalized package name (e.g., "test-matrix")
+        source_path: Path to wheel file source directory
+
+    Returns:
+        List of version strings sorted newest-first, e.g., ["1.5.0", "1.4.2", "1.0.0"]
+    """
+    versions: dict[str, Path] = {}
+    normalized_name = normalize_name(package_name)
+
+    # Scan source directory for matching wheel files
+    if not source_path.exists():
+        return []
+
+    for whl_file in source_path.glob("*.whl"):
+        # Parse wheel filename: {distribution}-{version}(-{build tag})?-{python tag}-{abi tag}-{platform tag}.whl
+        parts = whl_file.stem.split("-")
+        if len(parts) >= 2 and normalize_name(parts[0]) == normalized_name:
+            version_str = parts[1]
+            try:
+                Version(version_str)  # Validate version format
+                versions[version_str] = whl_file
+            except InvalidVersion:
+                continue
+
+    # Sort by Version object (newest first)
+    sorted_versions = sorted(versions.keys(), key=Version, reverse=True)
+    return sorted_versions
+
+
 def find_venv_python(venv_arg: str | None, exe_dir: Path) -> Path | None:
     candidates: list[Path] = []
     if venv_arg:

@@ -19,6 +19,7 @@ from updater.core import (
     UPDATABLE_STATUSES,
     check_updates,
     find_venv_python,
+    get_all_versions,
     get_installed_versions_batch,
     install_updates,
     scan_packages,
@@ -112,6 +113,19 @@ class Api:
             }
             for pkg, ver in installed.items()
         ]
+
+    def get_versions(self, package_name: str) -> list[str]:
+        """
+        Get all available versions for a package from the source directory.
+
+        Args:
+            package_name: Package name (e.g., "test-matrix")
+
+        Returns:
+            List of version strings sorted newest-first
+        """
+        versions = get_all_versions(package_name, Path(self._config.source))
+        return versions
 
     def check_for_updates(self) -> None:
         self._run_with_lock(self._do_scan)
