@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -8,6 +9,7 @@ from updater.core import (
     normalize_name,
     scan_packages,
     check_updates,
+    install_updates,
 )
 
 
@@ -105,3 +107,39 @@ class TestUpdateResult:
     def test_has_failures(self) -> None:
         r = UpdateResult(total=3, updated=2, failed=1, failures=["pkg-x"])
         assert r.all_success is False
+
+
+@pytest.fixture
+def mock_subprocess():
+    """Patch updater.core.subprocess so all subprocess.run calls are intercepted."""
+    with patch("updater.core.subprocess") as mock_sp:
+        yield mock_sp
+
+
+def test_install_updates_with_target_version(mock_subprocess):
+    """Test that install_updates with target_version runs uninstall then install."""
+    python_exe = Path("C:\\venv\\Scripts\\python.exe")
+
+    # Mock subprocess calls
+    mock_subprocess.run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+    # Call install_updates with target version
+    result = install_updates(
+        [PackageStatus(name="test-pkg", installed="1.0.0", available="3.0.0", status="update_available")],
+        python_exe,
+        target_version="2.5.0",
+    )
+
+    # Assert: should call pip uninstall then pip install with version
+    calls = mock_subprocess.run.call_args_list
+    assert len(calls) >= 2
+
+    # First call: uninstall
+    uninstall_cmd = calls[0][0][0]
+    assert "uninstall" in uninstall_cmd
+    assert "test-pkg" in uninstall_cmd
+
+    # Second call: install with version
+    install_cmd = calls[1][0][0]
+    assert "install" in install_cmd
+    assert "test-pkg==2.5.0" in install_cmd
