@@ -27,7 +27,7 @@ mode = "on_success"
 auto_launch = false
 auto_update = true
 auto_launch_enable = false
-auto_update_enable = false
+auto_update_enable = true
 
 [gui]
 theme = "blueprint"
