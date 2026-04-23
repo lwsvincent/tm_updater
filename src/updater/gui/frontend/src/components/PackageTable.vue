@@ -15,7 +15,21 @@
       >
         <span class="col-name">{{ pkg.name }}</span>
         <span class="col-installed">{{ pkg.installed || '-' }}</span>
-        <span class="col-available">{{ pkg.available || '-' }}</span>
+        <span class="col-available">
+          <select
+            :id="`version-${pkg.name}`"
+            v-model="store.selectedVersions[pkg.name]"
+            :disabled="store.isUpdating"
+            @change="onVersionSelect(pkg)"
+          >
+            <option
+              v-for="ver in (store.versionsMap[pkg.name] || [])"
+              :key="ver"
+              :value="ver"
+            >{{ ver }}</option>
+            <option v-if="!store.versionsMap[pkg.name] || store.versionsMap[pkg.name].length === 0" :value="null">-</option>
+          </select>
+        </span>
         <span class="col-status" :class="statusClass(pkg)">
           {{ statusText(pkg) }}
         </span>
@@ -33,10 +47,25 @@ import { inject, computed } from 'vue'
 const store = inject('store')
 const packages = computed(() => store.packages)
 
+/**
+ * Called when the user picks a version from the dropdown.
+ * Only updates local state - no API call here (install confirmation is Task 10).
+ * @param {object} pkg - The package row object
+ */
+function onVersionSelect(pkg) {
+  console.log(
+    '[DEBUG] Version selected:',
+    store.selectedVersions[pkg.name],
+    'for',
+    pkg.name
+  );
+}
+
 function rowClass(pkg) {
   return {
     'row-update': pkg.status === 'update_available',
     'row-missing': pkg.status === 'not_installed',
+    'row-refreshing': store.isUpdating,
   }
 }
 
@@ -88,7 +117,17 @@ function statusText(pkg) {
   display: flex;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
-  transition: background 0.15s;
+  transition: background 0.15s, background-color 0.5s ease;
+}
+
+.row-refreshing {
+  background-color: #e8f5e9;
+  animation: refresh-pulse 0.8s ease-out;
+}
+
+@keyframes refresh-pulse {
+  0%   { background-color: #c8e6c9; }
+  100% { background-color: #e8f5e9; }
 }
 
 .table-row:hover {
@@ -105,8 +144,32 @@ function statusText(pkg) {
 
 .col-name { flex: 2; font-weight: 500; }
 .col-installed { flex: 1; }
-.col-available { flex: 1; }
+.col-available { flex: 1; display: flex; align-items: center; }
 .col-status { flex: 1; text-align: right; font-weight: 500; }
+
+.col-available select {
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: var(--font-family);
+  background: white;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  color: var(--text-primary);
+}
+
+.col-available select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f5f5f5;
+}
+
+.col-available select:hover:not(:disabled) {
+  background: #f9f9f9;
+  border-color: var(--accent-blue);
+}
 
 .status-ok { color: var(--accent-green); }
 .status-update { color: #e65100; }

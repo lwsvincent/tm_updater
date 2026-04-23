@@ -33,7 +33,7 @@ window.onUpdateComplete = (result) => {
   store.isUpdating = false
 }
 
-window.onVersionedInstallComplete = (result) => {
+window.onVersionedInstallComplete = async (result) => {
   if (result.success) {
     console.log('[onVersionedInstallComplete] Installation complete')
   } else {
@@ -41,20 +41,38 @@ window.onVersionedInstallComplete = (result) => {
     console.error(`[onVersionedInstallComplete] Install failed: ${failures}`)
   }
 
-  // Refresh package list BEFORE closing the modal so the user sees updated
-  // versions when the modal disappears.
+  // Refresh package list and versions BEFORE closing the modal so the user
+  // sees updated versions when the modal disappears.
   if (window.pywebview) {
-    window.pywebview.api.get_packages().then((packages) => {
-      store.packages = packages
+    try {
+      const pkgData = await window.pywebview.api.get_packages()
+      store.packages = pkgData
+
+      // Refresh versions for each package in parallel (same pattern as initial load)
+      await Promise.all(pkgData.map(async (pkg) => {
+        try {
+          const versions = await window.pywebview.api.get_versions(pkg.name)
+          store.versionsMap[pkg.name] = versions || []
+          // Auto-select the newly installed version
+          store.selectedVersions[pkg.name] = pkg.installed || (versions && versions[0]) || null
+        } catch (err) {
+          console.warn(`[onVersionedInstallComplete] Failed to load versions for ${pkg.name}:`, err)
+          store.versionsMap[pkg.name] = []
+        }
+      }))
+
       store.pendingVersionInstall = null
       store.showVersionModal = false
-      store.isUpdating = false
-    })
+    } catch (err) {
+      console.error('[onVersionedInstallComplete] Refresh failed:', err)
+    }
   } else {
     store.pendingVersionInstall = null
     store.showVersionModal = false
-    store.isUpdating = false
   }
+
+  // Always unlock UI regardless of success or failure
+  store.isUpdating = false
 }
 
 window.onScanComplete = async (hasUpdates) => {
