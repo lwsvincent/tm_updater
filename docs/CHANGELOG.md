@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-04-23
+
+### Added
+- Version downgrade capability: Users can now select and install older package versions via a dropdown selector in the GUI
+- Modal confirmation dialog to prevent accidental downgrades
+- Session-level auto-update disabling: When an older version is installed, auto-update is disabled for the current session to prevent overwrites
+- Version selection dropdown: Replace static "Available: X.Y.Z" text with interactive dropdown showing all available versions sorted newest-first
+- Comprehensive integration tests for version selection and downgrade workflows
+
+### Changed
+- PackageTable now displays version selector as dropdown instead of static text
+- install_updates() function enhanced to support target_version parameter for versioned installations
+- API response includes all available versions for each package
+
+### Fixed
+- Auto-update now respects session-level disable flag to prevent version overwrites after manual downgrades
+
 ## [1.2.0] - 2026-04-23
 
 ### Added
@@ -45,6 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Migrated updater.py from test_matrix root to independent Updater sub-project
 
-[Unreleased]: https://github.com/testmatrix/test-matrix/compare/updater-1.1.0...HEAD
+[Unreleased]: https://github.com/testmatrix/test-matrix/compare/updater-1.3.0...HEAD
+[1.3.0]: https://github.com/testmatrix/test-matrix/compare/updater-1.2.0...updater-1.3.0
+[1.2.0]: https://github.com/testmatrix/test-matrix/compare/updater-1.1.0...updater-1.2.0
 [1.1.0]: https://github.com/testmatrix/test-matrix/compare/updater-1.0.0...updater-1.1.0
 [1.0.0]: https://github.com/testmatrix/test-matrix/releases/tag/updater-1.0.0
