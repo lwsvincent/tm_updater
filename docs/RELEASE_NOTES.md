@@ -1,3 +1,40 @@
+# Release Notes - Updater v1.2.0
+
+## Overview
+
+Introduces a comprehensive GUI launcher with auto-update capabilities, refactored architecture for better separation of concerns, and improved build tooling.
+
+## What's New
+
+### GUI Launcher with PyWebView
+- Modern Vue-based user interface for package management
+- Real-time package status display and update progress
+- Live log streaming from CLI operations
+- PyWebView bridge for seamless GUI-to-backend communication
+
+### Auto-Update Flow
+- Config-driven initialization for flexible deployment
+- Automatic package scanning and version checking
+- Update execution with dry-run preview support
+- Post-update launcher with intelligent mode detection
+
+### Build Improvements
+- Nuitka compilation for standalone `.exe` generation
+- Separated GUI and CLI build scripts (`build_gui.bat`, `build_updater.bat`)
+- Comprehensive test coverage for all components
+
+### Code Refactoring
+- Extracted core update logic (scan, compare, install)
+- Config module with typed dataclasses and TOML support
+- Launcher module for post-update executable handling
+- Main module refactored as thin CLI wrapper
+
+## Upgrade Notes
+
+The GUI launcher is optional. Existing CLI workflows continue to work unchanged. To use the GUI, ensure `pywebview>=5.0` is installed in your environment.
+
+---
+
 # Release Notes - Updater v1.1.0
 
 ## Overview

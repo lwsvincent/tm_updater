@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-04-23
+
+### Added
+- Vue-based GUI with PyWebView bridge for package management
+- Auto-update flow with config-driven initialization
+- GUI launcher executable built with Nuitka
+- Scan/update separation with concurrent execution
+- Post-update executable launcher with mode evaluation
+- Comprehensive test suite for CLI, config, core, launcher, and GUI components
+- Relocated documentation files to docs/ directory
+
+### Changed
+- Refactored main.py as thin CLI wrapper using core, config, and launcher modules
+- Enhanced status constants extraction for cleaner code organization
+
+### Fixed
+- Resolved code review issues including pipe deadlock and cache staleness
+
 ## [1.1.0] - 2026-04-22
 
 ### Added
