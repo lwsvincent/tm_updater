@@ -7,11 +7,11 @@
         This will uninstall the current version first.
       </p>
       <div class="modal-buttons">
-        <button class="btn btn-cancel" @click="cancelInstall">
+        <button class="btn btn-cancel" :disabled="store.isUpdating" @click="cancelInstall">
           Cancel
         </button>
-        <button class="btn btn-confirm" @click="confirmInstall">
-          Install
+        <button class="btn btn-confirm" :disabled="store.isUpdating" @click="confirmInstall">
+          {{ store.isUpdating ? 'Installing...' : 'Install' }}
         </button>
       </div>
     </div>
@@ -28,10 +28,28 @@ function cancelInstall() {
   store.pendingVersionInstall = null
 }
 
-function confirmInstall() {
-  // Task 10 will implement actual install logic here
-  console.log(`[Task 10] Will install: ${store.pendingVersionInstall.packageName}@${store.pendingVersionInstall.version}`)
-  store.showVersionModal = false
+async function confirmInstall() {
+  if (!store.pendingVersionInstall) return
+
+  const { packageName, version } = store.pendingVersionInstall
+
+  // Lock the UI while waiting for the backend to complete
+  store.isUpdating = true
+
+  if (window.pywebview) {
+    try {
+      // Backend runs install on a background thread and calls
+      // window.onVersionedInstallComplete() when done (success or failure).
+      await window.pywebview.api.install_versioned_package(packageName, version)
+    } catch (err) {
+      console.error('[VersionConfirmModal] install_versioned_package call failed:', err)
+      store.isUpdating = false
+      store.showVersionModal = false
+      store.pendingVersionInstall = null
+    }
+  }
+  // Do NOT close the modal here; onVersionedInstallComplete will close it
+  // after refreshing package data.
 }
 </script>
 

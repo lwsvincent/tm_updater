@@ -33,6 +33,30 @@ window.onUpdateComplete = (result) => {
   store.isUpdating = false
 }
 
+window.onVersionedInstallComplete = (result) => {
+  if (result.success) {
+    console.log('[onVersionedInstallComplete] Installation complete')
+  } else {
+    const failures = result.failures ? result.failures.join(', ') : 'unknown error'
+    console.error(`[onVersionedInstallComplete] Install failed: ${failures}`)
+  }
+
+  // Refresh package list BEFORE closing the modal so the user sees updated
+  // versions when the modal disappears.
+  if (window.pywebview) {
+    window.pywebview.api.get_packages().then((packages) => {
+      store.packages = packages
+      store.pendingVersionInstall = null
+      store.showVersionModal = false
+      store.isUpdating = false
+    })
+  } else {
+    store.pendingVersionInstall = null
+    store.showVersionModal = false
+    store.isUpdating = false
+  }
+}
+
 window.onScanComplete = async (hasUpdates) => {
   console.log('[DEBUG] onScanComplete called. hasUpdates:', hasUpdates);
   
