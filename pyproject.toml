@@ -4,7 +4,7 @@ requires = ["setuptools>=61.0", "wheel"]
 
 [project]
 name = "updater"
-version = "1.1.0"
+version = "1.2.0"
 description = "Standalone package updater for Test Matrix microservices"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
@@ -25,8 +25,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gui = [
+    "pywebview>=5.0",
+]
 dev = [
     "nuitka>=1.0.0",
+    "pywebview>=5.0",
     "pytest>=7.0.0",
     "black>=22.0.0",
     "isort>=5.10.0",
@@ -36,6 +40,7 @@ dev = [
 
 [project.scripts]
 updater = "updater.main:main"
+updater-gui = "updater.gui.app:main"
 
 [project.urls]
 Homepage = "https://github.com/testmatrix/test-matrix"

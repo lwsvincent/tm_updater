@@ -4,7 +4,8 @@ setlocal
 set SCRIPT_DIR=%~dp0
 set ROOT_DIR=%SCRIPT_DIR%..
 set VENV_PYTHON=%ROOT_DIR%\.venv\Scripts\python.exe
-set SOURCE_FILE=%ROOT_DIR%\src\updater\main.py
+set SOURCE_FILE=%ROOT_DIR%\src\updater\gui\app.py
+set FRONTEND_DIR=%ROOT_DIR%\src\updater\gui\frontend
 set OUTPUT_DIR=%ROOT_DIR%\dist
 
 if not exist "%VENV_PYTHON%" (
@@ -22,27 +23,44 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
+echo.
+echo Building frontend...
+cd "%FRONTEND_DIR%"
+call npm run build
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Frontend build failed.
+    pause
+    exit /b 1
+)
+cd "%ROOT_DIR%"
+
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 
 echo Updating version from pyproject.toml...
 "%VENV_PYTHON%" "%ROOT_DIR%\scripts\update_version.py"
 
 echo.
-echo Building updater.exe with Nuitka...
+echo Building updater_gui.exe with Nuitka...
 echo Source : %SOURCE_FILE%
-echo Output : %OUTPUT_DIR%\updater.exe
+echo Output : %OUTPUT_DIR%\updater_gui.exe
 echo.
 
 "%VENV_PYTHON%" -m nuitka ^
     --onefile ^
     --mingw64 ^
-    --disable-ccache ^
-    --show-scons ^
-    --jobs=1 ^
-    --output-filename=updater.exe ^
+    --output-filename=updater_gui.exe ^
     --output-dir="%OUTPUT_DIR%" ^
+    --include-data-dir="%FRONTEND_DIR%\dist"=frontend/dist ^
+    --include-module=webview ^
+    --include-module=webview.platforms ^
+    --include-module=webview.platforms.winforms ^
+    --nofollow-import-to=webview.platforms.android ^
+    --nofollow-import-to=webview.platforms.gtk ^
+    --nofollow-import-to=webview.platforms.cocoa ^
+    --nofollow-import-to=webview.platforms.qt ^
+    --disable-plugin=pywebview ^
     --include-package=packaging ^
-    --windows-console-mode=force ^
+    --windows-console-mode=disable ^
     --assume-yes-for-downloads ^
     "%SOURCE_FILE%"
 
@@ -54,4 +72,4 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo.
-echo Build successful: %OUTPUT_DIR%\updater.exe
+echo Build successful: %OUTPUT_DIR%\updater_gui.exe
