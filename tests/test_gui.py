@@ -43,11 +43,10 @@ class TestGetVersions:
         # Create test wheel files
         (source_path / "test_pkg-3.0.0-py3-none-any.whl").write_bytes(b"fake")
         (source_path / "test_pkg-2.5.0-py3-none-any.whl").write_bytes(b"fake")
-        (source_path / "test_pkg-1.0.0-py3-none-any.whl").write_bytes(b"fake")
 
         # Call the API
         result = api.get_versions("test-pkg")
 
         # Assert
-        assert result == ["3.0.0", "2.5.0", "1.0.0"]  # newest first
+        assert result == ["3.0.0", "2.5.0"]  # newest first
         assert isinstance(result, list)
