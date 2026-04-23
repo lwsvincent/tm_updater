@@ -36,6 +36,9 @@ cd "%ROOT_DIR%"
 
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 
+echo Updating version from pyproject.toml...
+"%VENV_PYTHON%" "%ROOT_DIR%\scripts\update_version.py"
+
 echo.
 echo Building updater_gui.exe with Nuitka...
 echo Source : %SOURCE_FILE%

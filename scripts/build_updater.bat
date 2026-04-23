@@ -24,6 +24,9 @@ if %ERRORLEVEL% neq 0 (
 
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 
+echo Updating version from pyproject.toml...
+"%VENV_PYTHON%" "%ROOT_DIR%\scripts\update_version.py"
+
 echo.
 echo Building updater.exe with Nuitka...
 echo Source : %SOURCE_FILE%

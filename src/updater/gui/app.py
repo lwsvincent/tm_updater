@@ -10,6 +10,7 @@ from pathlib import Path
 
 import webview
 
+from updater import get_version
 from updater.config import UpdaterConfig, find_config, load_config
 from updater.core import (
     STATUS_NOT_INSTALLED,
@@ -120,6 +121,7 @@ class Api:
             self._push_log("error", "No venv Python found")
             return
 
+        self._push_log("info", f"Test Matrix Updater GUI (v{get_version()})")
         print(f"[DEBUG] Starting scan. Source: {self._config.source}")
         available = scan_packages(Path(self._config.source))
         print(f"[DEBUG] Available packages in source: {list(available.keys())}")
@@ -228,6 +230,18 @@ class Api:
 
 
 def main() -> None:
+    # Enable DPI awareness (Level 2: Per Monitor DPI Aware)
+    if sys.platform == "win32":
+        import ctypes
+        try:
+            # Try SetProcessDpiAwareness (Level 2)
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except Exception:
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except Exception:
+                pass
+
     parser = argparse.ArgumentParser(description="Test Matrix Updater GUI")
     parser.add_argument(
         "--dev", action="store_true", help="Load from Vite dev server"
@@ -251,12 +265,43 @@ def main() -> None:
             sys.exit(1)
         url = str(frontend_dist)
 
+    # Determine window height and position based on screen resolution (70% of screen height)
+    try:
+        screens = webview.screens
+        if screens:
+            screen = screens[0]
+            # Use 70% of screen height, but keep it within reasonable bounds
+            calculated_height = int(screen.height * 0.7)
+            target_height = max(500, min(1000, calculated_height))
+            
+            # Position: Top = 3% of screen height, Horizontal = Center
+            window_width = 900
+            start_x = max(0, int((screen.width - window_width) / 2))
+            start_y = int(screen.height * 0.03)
+        else:
+            screen = None
+            target_height = 700
+            start_x = None
+            start_y = None
+    except Exception:
+        screen = None
+        target_height = 700
+        start_x = None
+        start_y = None
+
+    if screen:
+        print(f"[DEBUG] Screen: {screen.width}x{screen.height}, Target Height: {target_height}, Position: ({start_x}, {start_y})")
+    else:
+        print(f"[DEBUG] Calculated window height: {target_height}")
+
     window = webview.create_window(
         "Test Matrix Updater",
         url=url,
         js_api=api,
         width=900,
-        height=550,
+        height=target_height,
+        x=start_x,
+        y=start_y,
         min_size=(700, 400),
     )
     api._set_window(window)

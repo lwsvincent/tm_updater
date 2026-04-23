@@ -15,6 +15,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from updater import get_version
 from updater.config import find_config, load_config
 from updater.core import (
     check_updates,
@@ -32,6 +33,7 @@ def _cli_progress(level: str, message: str) -> None:
 
 
 def main() -> None:
+    print(f"Test Matrix Updater (v{get_version()})")
     config = load_config(find_config())
 
     parser = argparse.ArgumentParser(
@@ -59,7 +61,6 @@ def main() -> None:
     source_path = Path(args.source)
     exe_dir = Path(__file__).parent
 
-    print("Test Matrix Updater")
     print(f"Source : {source_path}")
     if args.dry_run:
         print("Mode   : dry-run (no changes will be made)")
