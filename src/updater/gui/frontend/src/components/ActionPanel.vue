@@ -3,7 +3,7 @@
     <div class="actions">
       <button
         class="btn btn-primary"
-        :disabled="store.isUpdating"
+        :disabled="store.isUpdating || updateCount === 0"
         @click="runUpdate"
       >
         <span v-if="store.isUpdating" class="spinner"></span>
@@ -37,20 +37,37 @@ import { inject, computed } from 'vue'
 
 const store = inject('store')
 
+const updateCount = computed(() =>
+  store.packages.filter(p =>
+    p.status === 'update_available' || p.status === 'not_installed'
+  ).length
+)
+
 const canLaunch = computed(() => {
   return store.updateComplete
     && !store.isLaunching
-    && store.config.launcher_enabled
     && store.config.launcher_executable
 })
 
 async function runUpdate() {
+  if (store.isUpdating) return
+  
   store.isUpdating = true
   store.updateComplete = false
   store.updateResult = null
-  store.logs = []
+  // We keep logs or clear them based on preference, clearing is usually better for new runs
+  store.logs = [] 
+  
   if (window.pywebview) {
-    await window.pywebview.api.run_update()
+    try {
+      await window.pywebview.api.run_update()
+    } catch (err) {
+      console.error('Failed to trigger update:', err)
+      store.isUpdating = false
+    }
+  } else {
+    // Mock for browser testing
+    setTimeout(() => { store.isUpdating = false }, 2000)
   }
 }
 
