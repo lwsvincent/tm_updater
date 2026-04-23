@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -110,7 +111,7 @@ class TestUpdateResult:
 
 
 @pytest.fixture(scope="function")
-def mock_subprocess():
+def mock_subprocess() -> Generator[MagicMock, None, None]:
     """Patch updater.core.subprocess so all subprocess.run calls are intercepted."""
     with patch("updater.core.subprocess") as mock_sp:
         yield mock_sp
