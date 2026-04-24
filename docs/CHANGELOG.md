@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Dual-mode primary button in ActionPanel for enhanced user interaction flexibility
+
+### Changed
+- Improved UI responsiveness and layout stability for better user experience
+
+### Fixed
+- Surgical auto-update suppression for downgrades to prevent unintended version overwrite
+
 ## [1.3.0] - 2026-04-23
 
 ### Added
