@@ -3,11 +3,11 @@
     <div class="actions">
       <button
         class="btn btn-primary"
-        :disabled="store.isUpdating || updateCount === 0"
-        @click="runUpdate"
+        :disabled="store.isUpdating || store.isScanning"
+        @click="handlePrimaryAction"
       >
-        <span v-if="store.isUpdating" class="spinner"></span>
-        {{ store.isUpdating ? 'Updating...' : '&#8635; Update All' }}
+        <span v-if="store.isUpdating || store.isScanning" class="spinner"></span>
+        {{ primaryButtonText }}
       </button>
       <button
         class="btn btn-success"
@@ -33,21 +33,90 @@
 </template>
 
 <script setup>
-import { inject, computed } from 'vue'
+import { inject, computed, watch, onMounted } from 'vue'
 
 const store = inject('store')
 
-const updateCount = computed(() =>
-  store.packages.filter(p =>
+const updateCount = computed(() => {
+  const actionable = store.packages.filter(p =>
     p.status === 'update_available' || p.status === 'not_installed'
-  ).length
-)
+  )
+  console.log(
+    `[ActionPanel] updateCount=${actionable.length}`,
+    store.packages.map(p => `${p.name}:${p.status}`)
+  )
+  return actionable.length
+})
 
 const canLaunch = computed(() => {
   return store.updateComplete
     && !store.isLaunching
     && store.config.launcher_executable
 })
+
+const primaryButtonText = computed(() => {
+  let text
+  if (store.isScanning) text = 'Checking...'
+  else if (store.isUpdating) text = 'Updating...'
+  else if (updateCount.value > 0) text = '↻ Update All'
+  else text = '↻ Check for Updates'
+  console.log(
+    `[ActionPanel] primaryButtonText="${text}"`,
+    `isScanning=${store.isScanning}`,
+    `isUpdating=${store.isUpdating}`,
+    `updateCount=${updateCount.value}`
+  )
+  return text
+})
+
+watch(() => store.isScanning, (val) => {
+  console.log(`[ActionPanel] isScanning changed → ${val}`)
+})
+
+watch(() => store.isUpdating, (val) => {
+  console.log(`[ActionPanel] isUpdating changed → ${val}`)
+})
+
+watch(() => store.packages, (pkgs) => {
+  console.log(
+    `[ActionPanel] packages updated (${pkgs.length} total):`,
+    pkgs.map(p => `${p.name}=${p.status}`)
+  )
+}, { deep: true })
+
+onMounted(() => {
+  console.log(
+    '[ActionPanel] mounted — initial state:',
+    `isScanning=${store.isScanning}`,
+    `isUpdating=${store.isUpdating}`,
+    `packages=${store.packages.length}`,
+    `updateCount=${updateCount.value}`
+  )
+})
+
+function handlePrimaryAction() {
+  if (updateCount.value > 0) {
+    runUpdate()
+  } else {
+    checkForUpdates()
+  }
+}
+
+async function checkForUpdates() {
+  if (store.isScanning || store.isUpdating) return
+  store.isScanning = true
+  console.log('[ActionPanel] Manual check for updates triggered')
+  if (window.pywebview) {
+    try {
+      await window.pywebview.api.check_for_updates()
+    } catch (err) {
+      console.error('[ActionPanel] check_for_updates failed:', err)
+      store.isScanning = false
+    }
+  } else {
+    setTimeout(() => { store.isScanning = false }, 2000)
+  }
+}
 
 async function runUpdate() {
   if (store.isUpdating) return

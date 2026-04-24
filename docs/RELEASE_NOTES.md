@@ -1,3 +1,20 @@
+# Release Notes - Updater v1.4.0
+
+## Summary
+
+UI improvements and refinements including enhanced responsiveness, dual-mode button interaction patterns, and fixed edge cases in auto-update suppression for downgrades.
+
+## What's New
+
+### UI Enhancements
+- Dual-mode primary button in ActionPanel for flexible user interaction patterns
+- Improved overall UI responsiveness and layout stability
+
+### Bug Fixes
+- Surgical auto-update suppression for downgrades to prevent unintended version overwrites
+
+---
+
 # Release Notes - Updater v1.2.0
 
 ## Overview

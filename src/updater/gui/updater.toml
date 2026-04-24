@@ -25,9 +25,9 @@ executable = ""
 args = []
 mode = "on_success"
 auto_launch = false
-auto_update = true
+auto_update = false
 auto_launch_enable = false
-auto_update_enable = true
+auto_update_enable = false
 
 [gui]
 theme = "blueprint"

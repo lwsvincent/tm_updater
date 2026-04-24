@@ -20,6 +20,7 @@
         <LogConsole />
       </div>
     </div>
+    <VersionConfirmModal />
   </div>
 </template>
 
@@ -28,6 +29,7 @@ import { inject, computed } from 'vue'
 import PackageTable from './components/PackageTable.vue'
 import ActionPanel from './components/ActionPanel.vue'
 import LogConsole from './components/LogConsole.vue'
+import VersionConfirmModal from './components/VersionConfirmModal.vue'
 
 const store = inject('store')
 
@@ -89,6 +91,7 @@ const updateCount = computed(() =>
 
 .panel-left {
   flex: 65;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border-color);
@@ -97,6 +100,7 @@ const updateCount = computed(() =>
 
 .panel-right {
   flex: 35;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
