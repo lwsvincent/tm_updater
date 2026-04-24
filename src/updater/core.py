@@ -426,22 +426,24 @@ def get_all_versions(package_name: str, source_path: Path) -> list[str]:
     return sorted_versions
 
 
-def find_venv_python(venv_arg: str | None, exe_dir: Path) -> Path | None:
+def find_venv_python(
+    venv_arg: str | None, exe_dir: Path, venv_names: list[str] | None = None
+) -> Path | None:
+    if venv_names is None:
+        venv_names = ["venv", ".venv"]
+
     candidates: list[Path] = []
     if venv_arg:
         candidates.append(Path(venv_arg) / "Scripts" / "python.exe")
 
     cwd = Path.cwd()
-    candidates += [
-        exe_dir / "venv" / "Scripts" / "python.exe",
-        exe_dir / ".venv" / "Scripts" / "python.exe",
-        exe_dir.parent / "venv" / "Scripts" / "python.exe",
-        exe_dir.parent / ".venv" / "Scripts" / "python.exe",
-        cwd / "venv" / "Scripts" / "python.exe",
-        cwd / ".venv" / "Scripts" / "python.exe",
-        cwd.parent / "venv" / "Scripts" / "python.exe",
-        cwd.parent / ".venv" / "Scripts" / "python.exe",
-    ]
+    for name in venv_names:
+        candidates += [
+            exe_dir / name / "Scripts" / "python.exe",
+            exe_dir.parent / name / "Scripts" / "python.exe",
+            cwd / name / "Scripts" / "python.exe",
+            cwd.parent / name / "Scripts" / "python.exe",
+        ]
 
     for p in candidates:
         if p.exists():

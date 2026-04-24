@@ -66,7 +66,7 @@ def main() -> None:
         print("Mode   : dry-run (no changes will be made)")
     print("-" * 55)
 
-    python_exe = find_venv_python(args.venv, exe_dir)
+    python_exe = find_venv_python(args.venv, exe_dir, config.venv_names)
     if python_exe is None:
         print(
             "[ERROR] Cannot find venv Python. Use --venv <path> to specify the venv directory."

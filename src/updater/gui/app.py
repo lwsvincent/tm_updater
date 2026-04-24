@@ -395,7 +395,7 @@ def main() -> None:
 
     config = load_config(find_config())
     exe_dir = Path(__file__).parent
-    python_exe = find_venv_python(None, exe_dir)
+    python_exe = find_venv_python(None, exe_dir, config.venv_names)
 
     api = Api(config, python_exe)
 

@@ -66,6 +66,7 @@ class UpdaterConfig:
 
     source: str = _BUILTIN_SOURCE
     packages: list[str] = field(default_factory=lambda: list(_BUILTIN_PACKAGES))
+    venv_names: list[str] = field(default_factory=lambda: ["venv", ".venv"])
     launcher: LauncherConfig = field(default_factory=LauncherConfig)
     gui: GuiConfig = field(default_factory=GuiConfig)
     config_dir: Path = field(default_factory=lambda: Path("."))
@@ -87,6 +88,20 @@ def load_config(toml_path: Path) -> UpdaterConfig:
     launcher_raw = raw.get("launcher", {})
     gui_raw = raw.get("gui", {})
 
+    # Handle venv_names: can be a string or a list in TOML
+    raw_venv_names = updater_raw.get("venv_name") or updater_raw.get("venv_names")
+    if isinstance(raw_venv_names, str):
+        venv_names = [raw_venv_names]
+    elif isinstance(raw_venv_names, list):
+        venv_names = raw_venv_names
+    else:
+        venv_names = ["venv", ".venv"]
+
+    # Ensure defaults are included if not present
+    for default in ["venv", ".venv"]:
+        if default not in venv_names:
+            venv_names.append(default)
+
     launcher = LauncherConfig(
         enabled=launcher_raw.get("enabled", False),
         executable=launcher_raw.get("executable", ""),
@@ -105,6 +120,7 @@ def load_config(toml_path: Path) -> UpdaterConfig:
     return UpdaterConfig(
         source=updater_raw.get("source", _BUILTIN_SOURCE),
         packages=updater_raw.get("packages", list(_BUILTIN_PACKAGES)),
+        venv_names=venv_names,
         launcher=launcher,
         gui=gui,
         config_dir=toml_path.parent.resolve(),
