@@ -223,7 +223,7 @@ def install_updates(
 
     for ps in to_update:
         if on_progress:
-            arrow = f"{ps.installed or 'not installed'} -> {ps.available}"
+            arrow = f"{ps.installed or 'not installed'} -> {target_version or ps.available}"
             on_progress("info", f"{ps.name}: {arrow} installing...")
 
         if target_version:
@@ -237,6 +237,11 @@ def install_updates(
                     "-y",
                     ps.name,
                 ]
+                if on_progress:
+                    on_progress(
+                        "debug",
+                        f"{ps.name}: [DEBUG] Uninstalling current version - cmd: {' '.join(uninstall_cmd)}",
+                    )
                 uninstall_result = subprocess.run(
                     uninstall_cmd,
                     capture_output=True,
@@ -244,6 +249,11 @@ def install_updates(
                     timeout=120,
                     **_get_subprocess_kwargs(),
                 )
+                if on_progress:
+                    on_progress(
+                        "debug",
+                        f"{ps.name}: [DEBUG] Uninstall returncode: {uninstall_result.returncode}",
+                    )
                 if uninstall_result.returncode != 0:
                     if on_progress:
                         on_progress(
@@ -255,22 +265,52 @@ def install_updates(
                     continue
 
                 # Install the specific target version
-                install_cmd = [
-                    str(python_exe),
-                    "-m",
-                    "pip",
-                    "install",
-                    f"{ps.name}=={target_version}",
-                ]
-                install_result = subprocess.run(
-                    install_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=120,
-                    **_get_subprocess_kwargs(),
-                )
-                ok = install_result.returncode == 0
-                err = install_result.stderr if not ok else ""
+                # Must use ps.whl_path if available (local wheel), not PyPI
+                if ps.whl_path:
+                    if on_progress:
+                        on_progress(
+                            "debug",
+                            f"{ps.name}: [DEBUG] Using local wheel file: {ps.whl_path}",
+                        )
+                    ok, err = install_whl(ps.whl_path, python_exe)
+                else:
+                    # Fallback to PyPI if no local wheel (shouldn't happen for version selection)
+                    install_cmd = [
+                        str(python_exe),
+                        "-m",
+                        "pip",
+                        "install",
+                        f"{ps.name}=={target_version}",
+                    ]
+                    if on_progress:
+                        on_progress(
+                            "debug",
+                            f"{ps.name}: [DEBUG] Installing from PyPI - cmd: {' '.join(install_cmd)}",
+                        )
+                    install_result = subprocess.run(
+                        install_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                        **_get_subprocess_kwargs(),
+                    )
+                    if on_progress:
+                        on_progress(
+                            "debug",
+                            f"{ps.name}: [DEBUG] pip install returncode: {install_result.returncode}",
+                        )
+                        if install_result.stdout:
+                            on_progress(
+                                "debug",
+                                f"{ps.name}: [DEBUG] pip stdout: {install_result.stdout[:500]}",
+                            )
+                        if install_result.stderr:
+                            on_progress(
+                                "debug",
+                                f"{ps.name}: [DEBUG] pip stderr: {install_result.stderr[:500]}",
+                            )
+                    ok = install_result.returncode == 0
+                    err = install_result.stderr if not ok else ""
             except subprocess.TimeoutExpired:
                 if on_progress:
                     on_progress("error", f"{ps.name}: timed out after 120s")

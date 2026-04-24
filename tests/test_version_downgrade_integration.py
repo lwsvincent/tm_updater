@@ -324,11 +324,11 @@ class TestPipCommandSequence:
         install_indices = [
             i
             for i, c in enumerate(cmd_strings)
-            if "install" in c and "uninstall" not in c and "==1.3.0" in c
+            if "install" in c and "uninstall" not in c and ".whl" in c
         ]
 
         assert uninstall_indices, "pip uninstall must be called"
-        assert install_indices, "pip install==1.3.0 must be called"
+        assert install_indices, "pip install with .whl file must be called"
 
         # Uninstall must come before install
         assert uninstall_indices[0] < install_indices[0], (
@@ -339,13 +339,15 @@ class TestPipCommandSequence:
         # Verify uninstall command shape: python -m pip uninstall -y test-pkg
         uninstall_cmd = cmd_strings[uninstall_indices[0]]
         assert "uninstall" in uninstall_cmd
-        assert "test-pkg" in uninstall_cmd
+        assert "test-pkg" in uninstall_cmd or "test_pkg" in uninstall_cmd
         assert "-y" in uninstall_cmd
 
-        # Verify install command shape: python -m pip install test-pkg==1.3.0
+        # Verify install command shape: python -m pip install <path-to-wheel> --no-deps --no-input
+        # The wheel should be test_pkg-1.3.0-py3-none-any.whl (from _populate_source)
         install_cmd = cmd_strings[install_indices[0]]
         assert "install" in install_cmd
-        assert "test-pkg==1.3.0" in install_cmd
+        assert "test_pkg-1.3.0-py3-none-any.whl" in install_cmd
+        assert "--no-deps" in install_cmd
 
 
 # ---------------------------------------------------------------------------
@@ -756,7 +758,7 @@ class TestDowngradeToEachAvailableVersion:
 
         assert result["success"] is True
 
-        # Verify the pip install command used the correct version
+        # Verify the pip install command used the correct version (from local wheel)
         recorded_calls = mock_sp.run.call_args_list
         cmd_strings = [
             " ".join(str(a) for a in c[0][0]) for c in recorded_calls
@@ -764,8 +766,9 @@ class TestDowngradeToEachAvailableVersion:
         install_cmds = [
             c for c in cmd_strings if "install" in c and "uninstall" not in c
         ]
-        assert any(f"test-pkg=={target_version}" in c for c in install_cmds), (
-            f"pip install must specify test-pkg=={target_version}, "
+        # Should use local wheel file with the target version in the filename
+        assert any(f"test_pkg-{target_version}-" in c for c in install_cmds), (
+            f"pip install must use test_pkg-{target_version}-*.whl, "
             f"got commands: {install_cmds}"
         )
 
