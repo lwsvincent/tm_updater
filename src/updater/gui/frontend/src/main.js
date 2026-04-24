@@ -8,6 +8,7 @@ const store = reactive({
   updateComplete: false,
   updateResult: null,
   isUpdating: false,
+  isScanning: false,
   isLaunching: false,
   showVersionModal: false,
   pendingVersionInstall: null, // {packageName: string, version: string, installedVersion: string|null}
@@ -69,21 +70,22 @@ window.onVersionedInstallComplete = async (result) => {
 
 window.onScanComplete = async (hasUpdates) => {
   console.log('[DEBUG] onScanComplete called. hasUpdates:', hasUpdates);
-  
+  store.isScanning = false
+
   // Wait for config to be loaded before making automation decisions
   await configPromise;
   console.log('[DEBUG] Config is ready in onScanComplete:', store.config);
-  
+
   if (!hasUpdates) {
     store.updateComplete = true
   }
-  
+
   const shouldAutoUpdate = hasUpdates && (store.config.auto_update || store.config.auto_update_enable);
   console.log('[DEBUG] Should auto update?', shouldAutoUpdate);
 
   if (shouldAutoUpdate) {
     console.log('[DEBUG] Triggering auto update...');
-    store.isUpdating = true // Set state here
+    store.isUpdating = true
     window.pywebview.api.run_update()
   } else if (!hasUpdates && (store.config.auto_launch || store.config.auto_launch_enable)) {
     console.log('[DEBUG] No updates, checking auto launch...');
@@ -133,6 +135,7 @@ window.addEventListener('pywebviewready', async () => {
 
   // 4. NOW trigger the scan from frontend
   console.log('[DEBUG] Triggering check_for_updates from frontend');
+  store.isScanning = true
   window.pywebview.api.check_for_updates()
 })
 
