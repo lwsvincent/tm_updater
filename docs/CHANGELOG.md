@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-04-24
+
 ### Added
 - Dual-mode primary button in ActionPanel for enhanced user interaction flexibility
 
@@ -71,8 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Migrated updater.py from test_matrix root to independent Updater sub-project
 
-[Unreleased]: https://github.com/testmatrix/test-matrix/compare/updater-1.3.0...HEAD
-[1.3.0]: https://github.com/testmatrix/test-matrix/compare/updater-1.2.0...updater-1.3.0
+[Unreleased]: https://github.com/lwsvincent/tm_updater/compare/updater-1.4.0...HEAD
+[1.4.0]: https://github.com/lwsvincent/tm_updater/compare/updater-1.3.0...updater-1.4.0
+[1.3.0]: https://github.com/lwsvincent/tm_updater/compare/updater-1.2.0...updater-1.3.0
 [1.2.0]: https://github.com/testmatrix/test-matrix/compare/updater-1.1.0...updater-1.2.0
 [1.1.0]: https://github.com/testmatrix/test-matrix/compare/updater-1.0.0...updater-1.1.0
 [1.0.0]: https://github.com/testmatrix/test-matrix/releases/tag/updater-1.0.0

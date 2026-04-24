@@ -1,4 +1,4 @@
-# Release Notes - Updater [Unreleased]
+# Release Notes - Updater v1.4.0
 
 ## Summary
 
