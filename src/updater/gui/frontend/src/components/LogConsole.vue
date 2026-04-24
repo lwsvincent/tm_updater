@@ -57,6 +57,7 @@ watch(logs, async () => {
 .log-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg-log);
   padding: 8px 12px;
   font-family: var(--font-mono);
@@ -76,6 +77,8 @@ watch(logs, async () => {
 
 .log-msg {
   color: var(--text-log);
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .log-info .log-msg { color: #4fc3f7; }

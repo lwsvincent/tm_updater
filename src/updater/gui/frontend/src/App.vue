@@ -91,6 +91,7 @@ const updateCount = computed(() =>
 
 .panel-left {
   flex: 65;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border-color);
@@ -99,6 +100,7 @@ const updateCount = computed(() =>
 
 .panel-right {
   flex: 35;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
