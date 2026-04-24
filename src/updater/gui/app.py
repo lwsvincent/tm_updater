@@ -12,6 +12,8 @@ import webview
 
 from updater import get_version
 from updater.config import UpdaterConfig, find_config, load_config
+from packaging.version import Version
+
 from updater.core import (
     STATUS_NOT_INSTALLED,
     STATUS_UP_TO_DATE,
@@ -135,16 +137,15 @@ class Api:
         self._run_with_lock(self._do_scan)
 
     def _do_scan(self) -> None:
-        if self._auto_update_disabled:
-            self._push_log(
-                "info",
-                "Auto-update disabled for this session (older version installed)",
-            )
-            return
-
         if self._python_exe is None:
             self._push_log("error", "No venv Python found")
             return
+
+        if self._auto_update_disabled:
+            self._push_log(
+                "info",
+                "Auto-update disabled for this session (older version installed) — scan continues",
+            )
 
         self._push_log("info", f"Test Matrix Updater GUI (v{get_version()})")
         print(f"[DEBUG] Starting scan. Source: {self._config.source}")
@@ -163,9 +164,14 @@ class Api:
 
         has_updates = len(updatable) > 0
         if self._window:
-            print(f"[DEBUG] Calling window.onScanComplete({has_updates})")
+            print(
+                f"[DEBUG] Calling window.onScanComplete({has_updates}, "
+                f"autoUpdateDisabled={self._auto_update_disabled})"
+            )
             self._window.evaluate_js(
-                f"window.onScanComplete({json.dumps(has_updates)})"
+                f"window.onScanComplete("
+                f"{json.dumps(has_updates)}, "
+                f"{json.dumps(self._auto_update_disabled)})"
             )
 
     def run_update(self) -> None:
@@ -214,6 +220,10 @@ class Api:
         )
         self._serialize_packages(statuses_now)
 
+        # Regular update always installs the latest — re-enable auto-update.
+        self._auto_update_disabled = False
+        print("[DEBUG] _do_update complete — auto_update_disabled reset to False")
+
         do_launch = should_launch(self._config.launcher.mode, result)
         should_launch_final = (
             do_launch
@@ -259,11 +269,23 @@ class Api:
         if self._python_exe is None:
             return {"success": False, "error": "No venv Python found"}
 
-        self._auto_update_disabled = True
-        self._push_log(
-            "info",
-            "Auto-update disabled for this session (older version installed)",
+        # Only suppress auto-update when installing an older (non-latest) version.
+        all_versions = get_all_versions(package_name, Path(self._config.source))
+        is_downgrade = bool(all_versions) and Version(version) < Version(all_versions[0])
+        print(
+            f"[DEBUG] install_versioned_package: version={version}, "
+            f"latest={all_versions[0] if all_versions else 'n/a'}, "
+            f"is_downgrade={is_downgrade}"
         )
+        if is_downgrade:
+            self._auto_update_disabled = True
+            self._push_log(
+                "info",
+                f"Auto-update disabled for this session (downgrade to {version})",
+            )
+        else:
+            self._auto_update_disabled = False
+            self._push_log("info", f"Installing {package_name}=={version} (latest)")
 
         def _do_install() -> None:
             if self._python_exe is None:

@@ -68,8 +68,8 @@ window.onVersionedInstallComplete = async (result) => {
   store.isUpdating = false
 }
 
-window.onScanComplete = async (hasUpdates) => {
-  console.log('[DEBUG] onScanComplete called. hasUpdates:', hasUpdates);
+window.onScanComplete = async (hasUpdates, autoUpdateDisabled = false) => {
+  console.log('[DEBUG] onScanComplete called. hasUpdates:', hasUpdates, 'autoUpdateDisabled:', autoUpdateDisabled);
   store.isScanning = false
 
   // Wait for config to be loaded before making automation decisions
@@ -80,14 +80,14 @@ window.onScanComplete = async (hasUpdates) => {
     store.updateComplete = true
   }
 
-  const shouldAutoUpdate = hasUpdates && (store.config.auto_update || store.config.auto_update_enable);
-  console.log('[DEBUG] Should auto update?', shouldAutoUpdate);
+  const shouldAutoUpdate = hasUpdates && !autoUpdateDisabled && (store.config.auto_update || store.config.auto_update_enable);
+  console.log('[DEBUG] Should auto update?', shouldAutoUpdate, '(autoUpdateDisabled:', autoUpdateDisabled, ')');
 
   if (shouldAutoUpdate) {
     console.log('[DEBUG] Triggering auto update...');
     store.isUpdating = true
     window.pywebview.api.run_update()
-  } else if (!hasUpdates && (store.config.auto_launch || store.config.auto_launch_enable)) {
+  } else if (!hasUpdates && !autoUpdateDisabled && (store.config.auto_launch || store.config.auto_launch_enable)) {
     console.log('[DEBUG] No updates, checking auto launch...');
     window.pywebview.api.launch_app()
   }
