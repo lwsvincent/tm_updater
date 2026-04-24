@@ -215,6 +215,7 @@ def install_updates(
     python_exe: Path,
     on_progress: ProgressCallback | None = None,
     target_version: str | None = None,
+    source_path: Path | None = None,
 ) -> UpdateResult:
     to_update = [s for s in statuses if s.status in UPDATABLE_STATUSES]
     updated = 0
@@ -265,27 +266,21 @@ def install_updates(
                     continue
 
                 # Install the specific target version
-                # Must use ps.whl_path if available (local wheel), not PyPI
-                if ps.whl_path:
-                    if on_progress:
-                        on_progress(
-                            "debug",
-                            f"{ps.name}: [DEBUG] Using local wheel file: {ps.whl_path}",
-                        )
-                    ok, err = install_whl(ps.whl_path, python_exe)
-                else:
-                    # Fallback to PyPI if no local wheel (shouldn't happen for version selection)
+                # Use --no-index --find-links to install from local source directory
+                if source_path:
                     install_cmd = [
                         str(python_exe),
                         "-m",
                         "pip",
                         "install",
+                        "--no-index",
+                        f"--find-links={source_path}",
                         f"{ps.name}=={target_version}",
                     ]
                     if on_progress:
                         on_progress(
                             "debug",
-                            f"{ps.name}: [DEBUG] Installing from PyPI - cmd: {' '.join(install_cmd)}",
+                            f"{ps.name}: [DEBUG] Installing from local source - cmd: {' '.join(install_cmd)}",
                         )
                     install_result = subprocess.run(
                         install_cmd,
@@ -311,6 +306,43 @@ def install_updates(
                             )
                     ok = install_result.returncode == 0
                     err = install_result.stderr if not ok else ""
+                else:
+                    # Fallback to direct wheel installation if source_path not provided
+                    if ps.whl_path:
+                        if on_progress:
+                            on_progress(
+                                "debug",
+                                f"{ps.name}: [DEBUG] Using local wheel file: {ps.whl_path}",
+                            )
+                        ok, err = install_whl(ps.whl_path, python_exe)
+                    else:
+                        # Last resort: try PyPI
+                        install_cmd = [
+                            str(python_exe),
+                            "-m",
+                            "pip",
+                            "install",
+                            f"{ps.name}=={target_version}",
+                        ]
+                        if on_progress:
+                            on_progress(
+                                "debug",
+                                f"{ps.name}: [DEBUG] Installing from PyPI - cmd: {' '.join(install_cmd)}",
+                            )
+                        install_result = subprocess.run(
+                            install_cmd,
+                            capture_output=True,
+                            text=True,
+                            timeout=120,
+                            **_get_subprocess_kwargs(),
+                        )
+                        if on_progress:
+                            on_progress(
+                                "debug",
+                                f"{ps.name}: [DEBUG] pip install returncode: {install_result.returncode}",
+                            )
+                        ok = install_result.returncode == 0
+                        err = install_result.stderr if not ok else ""
             except subprocess.TimeoutExpired:
                 if on_progress:
                     on_progress("error", f"{ps.name}: timed out after 120s")

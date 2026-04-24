@@ -324,11 +324,11 @@ class TestPipCommandSequence:
         install_indices = [
             i
             for i, c in enumerate(cmd_strings)
-            if "install" in c and "uninstall" not in c and ".whl" in c
+            if "install" in c and "uninstall" not in c and "--find-links" in c
         ]
 
         assert uninstall_indices, "pip uninstall must be called"
-        assert install_indices, "pip install with .whl file must be called"
+        assert install_indices, "pip install with --find-links must be called"
 
         # Uninstall must come before install
         assert uninstall_indices[0] < install_indices[0], (
@@ -342,12 +342,12 @@ class TestPipCommandSequence:
         assert "test-pkg" in uninstall_cmd or "test_pkg" in uninstall_cmd
         assert "-y" in uninstall_cmd
 
-        # Verify install command shape: python -m pip install <path-to-wheel> --no-deps --no-input
-        # The wheel should be test_pkg-1.3.0-py3-none-any.whl (from _populate_source)
+        # Verify install command shape: python -m pip install --no-index --find-links=<path> test-pkg==1.3.0
         install_cmd = cmd_strings[install_indices[0]]
         assert "install" in install_cmd
-        assert "test_pkg-1.3.0-py3-none-any.whl" in install_cmd
-        assert "--no-deps" in install_cmd
+        assert "--no-index" in install_cmd
+        assert "--find-links=" in install_cmd
+        assert "test-pkg==1.3.0" in install_cmd or "test_pkg==1.3.0" in install_cmd
 
 
 # ---------------------------------------------------------------------------
@@ -758,7 +758,7 @@ class TestDowngradeToEachAvailableVersion:
 
         assert result["success"] is True
 
-        # Verify the pip install command used the correct version (from local wheel)
+        # Verify the pip install command used the correct version
         recorded_calls = mock_sp.run.call_args_list
         cmd_strings = [
             " ".join(str(a) for a in c[0][0]) for c in recorded_calls
@@ -766,9 +766,13 @@ class TestDowngradeToEachAvailableVersion:
         install_cmds = [
             c for c in cmd_strings if "install" in c and "uninstall" not in c
         ]
-        # Should use local wheel file with the target version in the filename
-        assert any(f"test_pkg-{target_version}-" in c for c in install_cmds), (
-            f"pip install must use test_pkg-{target_version}-*.whl, "
+        # Should use --find-links and specify the target version
+        assert any(
+            "--find-links=" in c and f"test-pkg=={target_version}" in c or
+            f"test_pkg=={target_version}" in c
+            for c in install_cmds
+        ), (
+            f"pip install must use --find-links and test-pkg=={target_version}, "
             f"got commands: {install_cmds}"
         )
 

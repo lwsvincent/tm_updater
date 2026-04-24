@@ -23,7 +23,6 @@ from updater.core import (
     get_all_versions,
     get_installed_versions_batch,
     install_updates,
-    normalize_name,
     scan_packages,
 )
 from updater.launcher import LauncherError, launch_executable, should_launch
@@ -65,21 +64,6 @@ class Api:
         has_executable = bool(self._config.launcher.executable)
         return has_auto_launch and is_enabled and has_executable and do_launch
 
-    def _find_wheel_for_version(
-        self, package_name: str, target_version: str
-    ) -> Path | None:
-        """Find the wheel file for a specific package version in source directory."""
-        source_path = Path(self._config.source)
-        if not source_path.exists():
-            return None
-
-        norm_package = normalize_name(package_name)
-        for whl_file in source_path.glob("*.whl"):
-            parts = whl_file.stem.split("-")
-            if len(parts) >= 2:
-                if normalize_name(parts[0]) == norm_package and parts[1] == target_version:
-                    return whl_file
-        return None
 
     def _serialize_packages(self, statuses: list[PackageStatus]) -> None:
         """Convert package statuses to JSON-friendly format and push to frontend."""
@@ -303,40 +287,21 @@ class Api:
             # package is somehow not listed in config packages.
             target_statuses = [s for s in statuses if s.name == package_name]
             if not target_statuses:
-                # Find the wheel file for the target version
-                whl_path = self._find_wheel_for_version(package_name, version)
-                self._push_log(
-                    "debug",
-                    f"[DEBUG] Looking for wheel for {package_name}=={version}, found: {whl_path}",
-                )
-
                 target_statuses = [
                     PackageStatus(
                         name=package_name,
                         installed=installed_versions.get(package_name),
                         available=version,
                         status=STATUS_UPDATE_AVAILABLE,
-                        whl_path=whl_path,
                     )
                 ]
-            else:
-                # If status exists, try to find wheel for the target version
-                existing_status = target_statuses[0]
-                whl_path = self._find_wheel_for_version(package_name, version)
-
-                self._push_log(
-                    "debug",
-                    f"[DEBUG] Searching for wheel file for {package_name}=={version}, found: {whl_path}",
-                )
-
-                if whl_path:
-                    existing_status.whl_path = whl_path
 
             result = install_updates(
                 target_statuses,
                 self._python_exe,
                 on_progress=self._push_log,
                 target_version=version,
+                source_path=Path(self._config.source),
             )
 
             # Refresh package status in the GUI after installation

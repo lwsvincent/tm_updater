@@ -118,13 +118,14 @@ def mock_subprocess() -> Generator[MagicMock, None, None]:
 
 
 def test_install_updates_with_target_version(mock_subprocess: MagicMock) -> None:
-    """Test that install_updates with target_version runs uninstall then install from local wheel."""
+    """Test that install_updates with target_version runs uninstall then install from source."""
     python_exe = Path("C:\\venv\\Scripts\\python.exe")
+    source_path = Path("D:\\packages")
 
     # Mock subprocess calls
     mock_subprocess.run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
-    # Call install_updates with target version and local whl_path
+    # Call install_updates with target version and source_path
     result = install_updates(
         [
             PackageStatus(
@@ -132,14 +133,14 @@ def test_install_updates_with_target_version(mock_subprocess: MagicMock) -> None
                 installed="1.0.0",
                 available="3.0.0",
                 status="update_available",
-                whl_path=Path("test-pkg-2.5.0-py3-none-any.whl"),
             )
         ],
         python_exe,
         target_version="2.5.0",
+        source_path=source_path,
     )
 
-    # Assert: should call pip uninstall then pip install with local wheel
+    # Assert: should call pip uninstall then pip install with --find-links
     calls = mock_subprocess.run.call_args_list
     assert len(calls) >= 2
 
@@ -151,12 +152,12 @@ def test_install_updates_with_target_version(mock_subprocess: MagicMock) -> None
     assert "uninstall" in uninstall_cmd_str
     assert "test-pkg" in uninstall_cmd_str
 
-    # Second call: install with local wheel file (not PyPI version)
+    # Second call: install with --no-index --find-links
     install_call = calls[1]
     install_cmd = install_call[0][0]  # Extract positional arg
     assert isinstance(install_cmd, list)
     install_cmd_str = " ".join(map(str, install_cmd))
     assert "install" in install_cmd_str
-    # Should use the local wheel file, not pip install from PyPI
-    assert "test-pkg-2.5.0-py3-none-any.whl" in install_cmd_str
-    assert "--no-deps" in install_cmd_str
+    assert "--no-index" in install_cmd_str
+    assert f"--find-links={source_path}" in install_cmd_str
+    assert "test-pkg==2.5.0" in install_cmd_str
