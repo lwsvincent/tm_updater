@@ -10,7 +10,7 @@ const store = reactive({
   isUpdating: false,
   isLaunching: false,
   showVersionModal: false,
-  pendingVersionInstall: null, // {packageName: string, version: string}
+  pendingVersionInstall: null, // {packageName: string, version: string, installedVersion: string|null}
   versionsMap: {},       // { package_name: ["X.Y.Z", "A.B.C", ...] } sorted newest-first
   selectedVersions: {},  // { package_name: "X.Y.Z" } user's current selection
 })
@@ -41,37 +41,29 @@ window.onVersionedInstallComplete = async (result) => {
     console.error(`[onVersionedInstallComplete] Install failed: ${failures}`)
   }
 
-  // Refresh package list and versions BEFORE closing the modal so the user
-  // sees updated versions when the modal disappears.
+  // store.packages already has correct statuses from window.updatePackages (called by
+  // backend before this event fires). Do NOT call get_packages() here — it always
+  // returns up_to_date and would overwrite the correct status.
+  // Just refresh the version dropdown selections to match the newly installed versions.
   if (window.pywebview) {
     try {
-      const pkgData = await window.pywebview.api.get_packages()
-      store.packages = pkgData
-
-      // Refresh versions for each package in parallel (same pattern as initial load)
-      await Promise.all(pkgData.map(async (pkg) => {
+      await Promise.all(store.packages.map(async (pkg) => {
         try {
           const versions = await window.pywebview.api.get_versions(pkg.name)
           store.versionsMap[pkg.name] = versions || []
-          // Auto-select the newly installed version
           store.selectedVersions[pkg.name] = pkg.installed || (versions && versions[0]) || null
         } catch (err) {
           console.warn(`[onVersionedInstallComplete] Failed to load versions for ${pkg.name}:`, err)
           store.versionsMap[pkg.name] = []
         }
       }))
-
-      store.pendingVersionInstall = null
-      store.showVersionModal = false
     } catch (err) {
       console.error('[onVersionedInstallComplete] Refresh failed:', err)
     }
-  } else {
-    store.pendingVersionInstall = null
-    store.showVersionModal = false
   }
 
-  // Always unlock UI regardless of success or failure
+  store.pendingVersionInstall = null
+  store.showVersionModal = false
   store.isUpdating = false
 }
 

@@ -1,162 +1,111 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { reactive } from 'vue'
 import { mount } from '@vue/test-utils'
 import ActionPanel from '../ActionPanel.vue'
 
-describe('ActionPanel.vue - Install Selected Version button', () => {
+describe('ActionPanel.vue', () => {
   let store
 
   beforeEach(() => {
-    store = {
+    store = reactive({
       packages: [],
       isUpdating: false,
       isLaunching: false,
       updateComplete: false,
       updateResult: null,
       config: {},
+      logs: [],
       showVersionModal: false,
       pendingVersionInstall: null,
       versionsMap: {},
       selectedVersions: {},
-    }
-    // Provide a minimal pywebview mock on window
+    })
     window.pywebview = {
       api: {
-        run_update: vi.fn(),
-        launch_app: vi.fn(),
-        install_versioned_package: vi.fn(),
+        run_update: vi.fn().mockResolvedValue({}),
+        launch_app: vi.fn().mockResolvedValue({ success: true }),
       },
     }
   })
 
   function mountPanel() {
-    return mount(ActionPanel, {
-      global: {
-        provide: { store },
-      },
-    })
+    return mount(ActionPanel, { global: { provide: { store } } })
   }
 
+  // Install Selected Version button no longer exists — version selection is
+  // triggered by the dropdown in PackageTable.vue (see PackageTable.refresh.spec.js).
+
   // -------------------------------------------------------------------
-  // Button disabled cases
+  // Update All button
   // -------------------------------------------------------------------
 
-  it('test_install_button_disabled_when_no_packages', () => {
-    store.packages = []
-    store.selectedVersions = {}
-
-    const wrapper = mountPanel()
-    const btn = wrapper.find('.btn-install-version')
-    expect(btn.exists()).toBe(true)
-    expect(btn.attributes('disabled')).toBeDefined()
-  })
-
-  it('test_install_button_disabled_when_selected_equals_installed', () => {
-    store.packages = [
-      { name: 'pkg-a', installed: '1.0.0', available: '1.0.0', status: 'up_to_date' },
-    ]
-    store.selectedVersions = { 'pkg-a': '1.0.0' }
-
-    const wrapper = mountPanel()
-    const btn = wrapper.find('.btn-install-version')
-    expect(btn.attributes('disabled')).toBeDefined()
-  })
-
-  it('test_install_button_disabled_when_isUpdating', () => {
-    store.packages = [
-      { name: 'pkg-a', installed: '1.0.0', available: '2.0.0', status: 'update_available' },
-    ]
-    store.selectedVersions = { 'pkg-a': '0.9.0' }
+  it('test_update_button_disabled_when_is_updating', () => {
+    store.packages = [{ name: 'pkg-a', installed: '1.0.0', available: '2.0.0', status: 'update_available' }]
     store.isUpdating = true
 
     const wrapper = mountPanel()
-    const btn = wrapper.find('.btn-install-version')
+    const btn = wrapper.find('.btn-primary')
     expect(btn.attributes('disabled')).toBeDefined()
   })
 
-  it('test_install_button_disabled_when_selected_version_is_null', () => {
-    store.packages = [
-      { name: 'pkg-a', installed: '1.0.0', available: null, status: 'up_to_date' },
-    ]
-    store.selectedVersions = { 'pkg-a': null }
+  it('test_update_button_disabled_when_no_updates_available', () => {
+    store.packages = [{ name: 'pkg-a', installed: '1.0.0', available: '1.0.0', status: 'up_to_date' }]
 
     const wrapper = mountPanel()
-    const btn = wrapper.find('.btn-install-version')
+    const btn = wrapper.find('.btn-primary')
     expect(btn.attributes('disabled')).toBeDefined()
   })
 
-  // -------------------------------------------------------------------
-  // Button enabled cases
-  // -------------------------------------------------------------------
-
-  it('test_install_button_enabled_when_version_differs', () => {
-    store.packages = [
-      { name: 'pkg-a', installed: '1.0.0', available: '2.0.0', status: 'update_available' },
-    ]
-    store.selectedVersions = { 'pkg-a': '0.9.0' }
+  it('test_update_button_enabled_when_updates_available', () => {
+    store.packages = [{ name: 'pkg-a', installed: '1.0.0', available: '2.0.0', status: 'update_available' }]
 
     const wrapper = mountPanel()
-    const btn = wrapper.find('.btn-install-version')
+    const btn = wrapper.find('.btn-primary')
     expect(btn.attributes('disabled')).toBeUndefined()
   })
 
-  it('test_install_button_enabled_for_first_eligible_package', () => {
-    // First package matches installed; second is different - button should enable
-    store.packages = [
-      { name: 'pkg-a', installed: '1.0.0', available: '1.0.0', status: 'up_to_date' },
-      { name: 'pkg-b', installed: '2.0.0', available: '2.0.0', status: 'up_to_date' },
-    ]
-    store.selectedVersions = { 'pkg-a': '1.0.0', 'pkg-b': '1.5.0' }
+  it('test_update_button_enabled_when_package_not_installed', () => {
+    store.packages = [{ name: 'pkg-a', installed: null, available: '1.0.0', status: 'not_installed' }]
 
     const wrapper = mountPanel()
-    const btn = wrapper.find('.btn-install-version')
+    const btn = wrapper.find('.btn-primary')
     expect(btn.attributes('disabled')).toBeUndefined()
   })
 
-  // -------------------------------------------------------------------
-  // Click behaviour
-  // -------------------------------------------------------------------
-
-  it('test_clicking_button_sets_pendingVersionInstall', async () => {
-    store.packages = [
-      { name: 'pkg-a', installed: '1.0.0', available: '2.0.0', status: 'update_available' },
-    ]
-    store.selectedVersions = { 'pkg-a': '0.9.0' }
+  it('test_clicking_update_sets_is_updating', async () => {
+    store.packages = [{ name: 'pkg-a', installed: '1.0.0', available: '2.0.0', status: 'update_available' }]
+    window.pywebview.api.run_update = vi.fn(() => new Promise(() => {}))
 
     const wrapper = mountPanel()
-    await wrapper.find('.btn-install-version').trigger('click')
+    await wrapper.find('.btn-primary').trigger('click')
 
-    expect(store.pendingVersionInstall).toEqual({
-      packageName: 'pkg-a',
-      version: '0.9.0',
-    })
+    expect(store.isUpdating).toBe(true)
   })
 
-  it('test_clicking_button_shows_modal', async () => {
-    store.packages = [
-      { name: 'pkg-a', installed: '1.0.0', available: '2.0.0', status: 'update_available' },
-    ]
-    store.selectedVersions = { 'pkg-a': '0.9.0' }
+  it('test_clicking_update_calls_run_update_api', async () => {
+    store.packages = [{ name: 'pkg-a', installed: '1.0.0', available: '2.0.0', status: 'update_available' }]
 
     const wrapper = mountPanel()
-    await wrapper.find('.btn-install-version').trigger('click')
+    await wrapper.find('.btn-primary').trigger('click')
+    await new Promise((r) => setTimeout(r, 0))
 
-    expect(store.showVersionModal).toBe(true)
+    expect(window.pywebview.api.run_update).toHaveBeenCalled()
   })
 
-  it('test_clicking_button_picks_first_eligible_package', async () => {
-    // pkg-a matches (no change), pkg-b differs -> button should target pkg-b
-    store.packages = [
-      { name: 'pkg-a', installed: '1.0.0', available: '1.0.0', status: 'up_to_date' },
-      { name: 'pkg-b', installed: '2.0.0', available: '2.0.0', status: 'up_to_date' },
-    ]
-    store.selectedVersions = { 'pkg-a': '1.0.0', 'pkg-b': '1.5.0' }
+  // -------------------------------------------------------------------
+  // Status bar
+  // -------------------------------------------------------------------
+
+  it('test_status_bar_hidden_when_no_result', () => {
+    const wrapper = mountPanel()
+    expect(wrapper.find('.status-bar').exists()).toBe(false)
+  })
+
+  it('test_status_bar_shows_updated_count', async () => {
+    store.updateResult = { total: 3, updated: 2, failed: 1 }
 
     const wrapper = mountPanel()
-    await wrapper.find('.btn-install-version').trigger('click')
-
-    expect(store.pendingVersionInstall).toEqual({
-      packageName: 'pkg-b',
-      version: '1.5.0',
-    })
+    expect(wrapper.find('.status-bar').exists()).toBe(true)
+    expect(wrapper.text()).toContain('2')
   })
 })

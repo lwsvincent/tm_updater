@@ -47,33 +47,46 @@ import { inject, computed } from 'vue'
 const store = inject('store')
 const packages = computed(() => store.packages)
 
-/**
- * Called when the user picks a version from the dropdown.
- * Only updates local state - no API call here (install confirmation is Task 10).
- * @param {object} pkg - The package row object
- */
 function onVersionSelect(pkg) {
-  console.log(
-    '[DEBUG] Version selected:',
-    store.selectedVersions[pkg.name],
-    'for',
-    pkg.name
-  );
+  const selected = store.selectedVersions[pkg.name]
+  console.log('[PackageTable] Version selected:', selected, 'for', pkg.name, '(installed:', pkg.installed, ')')
+
+  if (selected && selected !== pkg.installed) {
+    store.pendingVersionInstall = {
+      packageName: pkg.name,
+      version: selected,
+      installedVersion: pkg.installed,
+    }
+    store.showVersionModal = true
+    console.log('[PackageTable] Opening confirm modal:', pkg.name, pkg.installed, '->', selected)
+  }
+}
+
+function getEffectiveStatus(pkg) {
+  const selected = store.selectedVersions[pkg.name]
+  if (pkg.status === 'up_to_date' && selected && selected !== pkg.installed) {
+    return 'version_specified'
+  }
+  return pkg.status
 }
 
 function rowClass(pkg) {
+  const status = getEffectiveStatus(pkg)
   return {
-    'row-update': pkg.status === 'update_available',
-    'row-missing': pkg.status === 'not_installed',
+    'row-update': status === 'update_available',
+    'row-missing': status === 'not_installed',
+    'row-specified': status === 'version_specified',
     'row-refreshing': store.isUpdating,
   }
 }
 
 function statusClass(pkg) {
+  const status = getEffectiveStatus(pkg)
   return {
-    'status-ok': pkg.status === 'up_to_date',
-    'status-update': pkg.status === 'update_available',
-    'status-missing': pkg.status === 'not_installed' || pkg.status === 'not_in_source',
+    'status-ok': status === 'up_to_date',
+    'status-update': status === 'update_available',
+    'status-missing': status === 'not_installed' || status === 'not_in_source',
+    'status-specified': status === 'version_specified',
   }
 }
 
@@ -83,8 +96,9 @@ function statusText(pkg) {
     update_available: '▲ Update',
     not_in_source: 'Not in source',
     not_installed: 'Not installed',
+    version_specified: '⬇ Version specified',
   }
-  return map[pkg.status] || pkg.status
+  return map[getEffectiveStatus(pkg)] || getEffectiveStatus(pkg)
 }
 </script>
 
@@ -142,6 +156,10 @@ function statusText(pkg) {
   background: #fff3e0;
 }
 
+.row-specified {
+  background: #f3e5f5;
+}
+
 .col-name { flex: 2; font-weight: 500; }
 .col-installed { flex: 1; }
 .col-available { flex: 1; display: flex; align-items: center; }
@@ -174,6 +192,7 @@ function statusText(pkg) {
 .status-ok { color: var(--accent-green); }
 .status-update { color: #e65100; }
 .status-missing { color: var(--text-secondary); }
+.status-specified { color: #6a1b9a; }
 
 .table-empty {
   padding: 40px;

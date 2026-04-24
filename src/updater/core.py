@@ -5,7 +5,7 @@ import re
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable
 
@@ -44,7 +44,8 @@ STATUS_UP_TO_DATE = "up_to_date"
 STATUS_UPDATE_AVAILABLE = "update_available"
 STATUS_NOT_IN_SOURCE = "not_in_source"
 STATUS_NOT_INSTALLED = "not_installed"
-UPDATABLE_STATUSES = (STATUS_UPDATE_AVAILABLE, STATUS_NOT_INSTALLED)
+STATUS_VERSION_SPECIFIED = "version_specified"
+UPDATABLE_STATUSES = (STATUS_UPDATE_AVAILABLE, STATUS_NOT_INSTALLED, STATUS_VERSION_SPECIFIED)
 
 _pip_cache: dict[str, dict[str, str]] = {}
 
@@ -67,6 +68,7 @@ def get_installed_versions_batch(
                 [str(python_exe), "-m", "pip", "list", "--format=json"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 timeout=30,
                 **_get_subprocess_kwargs(),
             )
@@ -198,6 +200,7 @@ def install_whl(whl_path: Path, python_exe: Path) -> tuple[bool, str]:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=120,
             **_get_subprocess_kwargs(),
         )
@@ -217,6 +220,21 @@ def install_updates(
     target_version: str | None = None,
     source_path: Path | None = None,
 ) -> UpdateResult:
+    if target_version:
+        updated_statuses = []
+        for s in statuses:
+            if s.status == STATUS_UP_TO_DATE and s.installed != target_version:
+                if on_progress:
+                    on_progress(
+                        "debug",
+                        f"{s.name}: overriding status to version_specified "
+                        f"(installed={s.installed}, target={target_version})",
+                    )
+                updated_statuses.append(replace(s, status=STATUS_VERSION_SPECIFIED))
+            else:
+                updated_statuses.append(s)
+        statuses = updated_statuses
+
     to_update = [s for s in statuses if s.status in UPDATABLE_STATUSES]
     updated = 0
     failed = 0
@@ -247,6 +265,7 @@ def install_updates(
                     uninstall_cmd,
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
                     timeout=120,
                     **_get_subprocess_kwargs(),
                 )
@@ -266,14 +285,13 @@ def install_updates(
                     continue
 
                 # Install the specific target version
-                # Use --no-index --find-links to install from local source directory
+                # Use --find-links to install from local source directory
                 if source_path:
                     install_cmd = [
                         str(python_exe),
                         "-m",
                         "pip",
                         "install",
-                        "--no-index",
                         f"--find-links={source_path}",
                         f"{ps.name}=={target_version}",
                     ]
@@ -286,6 +304,7 @@ def install_updates(
                         install_cmd,
                         capture_output=True,
                         text=True,
+                        encoding="utf-8",
                         timeout=120,
                         **_get_subprocess_kwargs(),
                     )
@@ -333,6 +352,7 @@ def install_updates(
                             install_cmd,
                             capture_output=True,
                             text=True,
+                            encoding="utf-8",
                             timeout=120,
                             **_get_subprocess_kwargs(),
                         )

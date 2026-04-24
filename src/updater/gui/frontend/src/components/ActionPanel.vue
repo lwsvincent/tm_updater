@@ -10,13 +10,6 @@
         {{ store.isUpdating ? 'Updating...' : '&#8635; Update All' }}
       </button>
       <button
-        class="btn btn-primary btn-install-version"
-        :disabled="!targetPackage || store.isUpdating"
-        @click="promptVersionInstall"
-      >
-        &#8595; Install Selected Version
-      </button>
-      <button
         class="btn btn-success"
         :disabled="!canLaunch"
         @click="launchApp"
@@ -50,36 +43,11 @@ const updateCount = computed(() =>
   ).length
 )
 
-/**
- * Returns the first package whose selected version differs from its installed
- * version, or null when no such package exists. Used to drive the
- * "Install Selected Version" button enabled/disabled state.
- */
-const targetPackage = computed(() => {
-  for (const pkg of store.packages) {
-    const selected = store.selectedVersions[pkg.name]
-    if (selected && selected !== pkg.installed) {
-      return pkg
-    }
-  }
-  return null
-})
-
 const canLaunch = computed(() => {
   return store.updateComplete
     && !store.isLaunching
     && store.config.launcher_executable
 })
-
-function promptVersionInstall() {
-  const pkg = targetPackage.value
-  if (!pkg) return
-  store.pendingVersionInstall = {
-    packageName: pkg.name,
-    version: store.selectedVersions[pkg.name],
-  }
-  store.showVersionModal = true
-}
 
 async function runUpdate() {
   if (store.isUpdating) return

@@ -287,6 +287,10 @@ class Api:
             # package is somehow not listed in config packages.
             target_statuses = [s for s in statuses if s.name == package_name]
             if not target_statuses:
+                self._push_log(
+                    "debug",
+                    f"{package_name}: not found in config packages, using synthetic status",
+                )
                 target_statuses = [
                     PackageStatus(
                         name=package_name,
@@ -295,6 +299,12 @@ class Api:
                         status=STATUS_UPDATE_AVAILABLE,
                     )
                 ]
+
+            for s in target_statuses:
+                self._push_log(
+                    "debug",
+                    f"{s.name}: current status={s.status}, installed={s.installed}, target={version}",
+                )
 
             result = install_updates(
                 target_statuses,

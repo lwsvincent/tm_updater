@@ -5,6 +5,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from updater.core import (
+    STATUS_UP_TO_DATE,
+    STATUS_UPDATE_AVAILABLE,
+    STATUS_VERSION_SPECIFIED,
+    UPDATABLE_STATUSES,
     PackageStatus,
     UpdateResult,
     normalize_name,
@@ -161,3 +165,94 @@ def test_install_updates_with_target_version(mock_subprocess: MagicMock) -> None
     assert "--no-index" in install_cmd_str
     assert f"--find-links={source_path}" in install_cmd_str
     assert "test-pkg==2.5.0" in install_cmd_str
+
+
+class TestVersionSpecifiedStatus:
+    """Tests for STATUS_VERSION_SPECIFIED behavior in install_updates."""
+
+    def test_version_specified_in_updatable_statuses(self) -> None:
+        assert STATUS_VERSION_SPECIFIED in UPDATABLE_STATUSES
+
+    def test_up_to_date_overridden_to_version_specified_when_installed_differs(
+        self, mock_subprocess: MagicMock
+    ) -> None:
+        """up_to_date package gets version_specified when target differs from installed."""
+        mock_subprocess.run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        python_exe = Path("C:\\venv\\Scripts\\python.exe")
+        source_path = Path("D:\\packages")
+
+        progress_calls: list[tuple[str, str]] = []
+
+        install_updates(
+            [
+                PackageStatus(
+                    name="test-pkg",
+                    installed="2.0.0",
+                    available="2.0.0",
+                    status=STATUS_UP_TO_DATE,
+                )
+            ],
+            python_exe,
+            on_progress=lambda lvl, msg: progress_calls.append((lvl, msg)),
+            target_version="1.0.0",
+            source_path=source_path,
+        )
+
+        # Should have logged the override
+        override_msgs = [msg for _, msg in progress_calls if "version_specified" in msg]
+        assert override_msgs, "Expected a log message about version_specified override"
+        # Should have attempted install (2 subprocess calls: uninstall + install)
+        assert mock_subprocess.run.call_count == 2
+
+    def test_up_to_date_not_overridden_when_installed_matches_target(
+        self, mock_subprocess: MagicMock
+    ) -> None:
+        """up_to_date package stays up_to_date when already at target version."""
+        mock_subprocess.run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        python_exe = Path("C:\\venv\\Scripts\\python.exe")
+        source_path = Path("D:\\packages")
+
+        result = install_updates(
+            [
+                PackageStatus(
+                    name="test-pkg",
+                    installed="1.0.0",
+                    available="2.0.0",
+                    status=STATUS_UP_TO_DATE,
+                )
+            ],
+            python_exe,
+            target_version="1.0.0",
+            source_path=source_path,
+        )
+
+        # Already at target — nothing to install
+        assert result.total == 0
+        assert mock_subprocess.run.call_count == 0
+
+    def test_update_available_still_processed_alongside_version_specified(
+        self, mock_subprocess: MagicMock
+    ) -> None:
+        """update_available packages are still processed when target_version is given."""
+        mock_subprocess.run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        python_exe = Path("C:\\venv\\Scripts\\python.exe")
+        source_path = Path("D:\\packages")
+
+        result = install_updates(
+            [
+                PackageStatus(
+                    name="pkg-needs-update",
+                    installed="1.0.0",
+                    available="3.0.0",
+                    status=STATUS_UPDATE_AVAILABLE,
+                )
+            ],
+            python_exe,
+            target_version="2.0.0",
+            source_path=source_path,
+        )
+
+        assert result.total == 1
+        calls = mock_subprocess.run.call_args_list
+        # uninstall + install
+        assert len(calls) == 2

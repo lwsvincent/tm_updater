@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { reactive } from 'vue'
 import { mount } from '@vue/test-utils'
 import VersionConfirmModal from '../VersionConfirmModal.vue'
 
@@ -6,12 +7,12 @@ describe('VersionConfirmModal.vue', () => {
   let store
 
   beforeEach(() => {
-    store = {
+    store = reactive({
       showVersionModal: false,
       pendingVersionInstall: null,
       isUpdating: false,
-    }
-    // Provide pywebview mock so the confirm handler can call the API
+      selectedVersions: { 'test-pkg': '2.0.0' },
+    })
     window.pywebview = {
       api: {
         install_versioned_package: vi.fn().mockResolvedValue({ success: true, error: null }),
@@ -25,56 +26,41 @@ describe('VersionConfirmModal.vue', () => {
 
   it('test_modal_hidden_by_default', () => {
     const wrapper = mount(VersionConfirmModal, {
-      global: {
-        provide: {
-          store: store,
-        },
-      },
+      global: { provide: { store } },
     })
-
     expect(wrapper.find('.modal-overlay').exists()).toBe(false)
   })
 
   it('test_modal_shows_when_flag_true', () => {
     store.showVersionModal = true
-    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0' }
+    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0', installedVersion: '1.0.0' }
 
     const wrapper = mount(VersionConfirmModal, {
-      global: {
-        provide: {
-          store: store,
-        },
-      },
+      global: { provide: { store } },
     })
-
     expect(wrapper.find('.modal-overlay').exists()).toBe(true)
   })
 
-  it('test_modal_displays_version', () => {
+  it('test_modal_displays_package_name_installed_and_target_version', () => {
     store.showVersionModal = true
-    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0' }
+    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0', installedVersion: '1.0.0' }
 
     const wrapper = mount(VersionConfirmModal, {
-      global: {
-        provide: {
-          store: store,
-        },
-      },
+      global: { provide: { store } },
     })
 
-    expect(wrapper.text()).toContain('2.0.0')
+    const text = wrapper.text()
+    expect(text).toContain('test-pkg')
+    expect(text).toContain('1.0.0')
+    expect(text).toContain('2.0.0')
   })
 
   it('test_cancel_button_closes_modal', async () => {
     store.showVersionModal = true
-    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0' }
+    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0', installedVersion: '1.0.0' }
 
     const wrapper = mount(VersionConfirmModal, {
-      global: {
-        provide: {
-          store: store,
-        },
-      },
+      global: { provide: { store } },
     })
 
     await wrapper.find('.btn-cancel').trigger('click')
@@ -83,18 +69,28 @@ describe('VersionConfirmModal.vue', () => {
     expect(store.pendingVersionInstall).toBeNull()
   })
 
+  it('test_cancel_resets_selected_version_to_installed', async () => {
+    store.showVersionModal = true
+    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0', installedVersion: '1.0.0' }
+    store.selectedVersions['test-pkg'] = '2.0.0'
+
+    const wrapper = mount(VersionConfirmModal, {
+      global: { provide: { store } },
+    })
+
+    await wrapper.find('.btn-cancel').trigger('click')
+
+    expect(store.selectedVersions['test-pkg']).toBe('1.0.0')
+  })
+
   it('test_confirm_button_calls_install_versioned_package_api', async () => {
     store.showVersionModal = true
-    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0' }
+    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0', installedVersion: '1.0.0' }
 
     const apiSpy = vi.spyOn(window.pywebview.api, 'install_versioned_package')
 
     const wrapper = mount(VersionConfirmModal, {
-      global: {
-        provide: {
-          store: store,
-        },
-      },
+      global: { provide: { store } },
     })
 
     await wrapper.find('.btn-confirm').trigger('click')
@@ -104,41 +100,30 @@ describe('VersionConfirmModal.vue', () => {
 
   it('test_confirm_button_locks_modal_during_install', async () => {
     store.showVersionModal = true
-    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0' }
+    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0', installedVersion: '1.0.0' }
     store.isUpdating = false
 
-    // Make the API call hang (never resolves) so we can inspect the locked state
     window.pywebview.api.install_versioned_package = vi.fn(
-      () => new Promise(() => {}) // intentionally never resolves
+      () => new Promise(() => {})
     )
 
     const wrapper = mount(VersionConfirmModal, {
-      global: {
-        provide: {
-          store: store,
-        },
-      },
+      global: { provide: { store } },
     })
 
     await wrapper.find('.btn-confirm').trigger('click')
 
-    // After click, store.isUpdating should be true (locked)
     expect(store.isUpdating).toBe(true)
-    // Modal should still be visible during install
     expect(store.showVersionModal).toBe(true)
   })
 
   it('test_cancel_button_disabled_during_install', async () => {
     store.showVersionModal = true
-    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0' }
+    store.pendingVersionInstall = { packageName: 'test-pkg', version: '2.0.0', installedVersion: '1.0.0' }
     store.isUpdating = true
 
     const wrapper = mount(VersionConfirmModal, {
-      global: {
-        provide: {
-          store: store,
-        },
-      },
+      global: { provide: { store } },
     })
 
     const cancelBtn = wrapper.find('.btn-cancel')

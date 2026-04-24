@@ -3,7 +3,9 @@
     <div class="modal-dialog">
       <h2>Install Different Version?</h2>
       <p v-if="store.pendingVersionInstall">
-        Install version <strong>{{ store.pendingVersionInstall.version }}</strong>?
+        <strong>{{ store.pendingVersionInstall.packageName }}</strong>:
+        {{ store.pendingVersionInstall.installedVersion || 'not installed' }}
+        &rarr; <strong>{{ store.pendingVersionInstall.version }}</strong><br>
         This will uninstall the current version first.
       </p>
       <div class="modal-buttons">
@@ -24,6 +26,11 @@ import { inject } from 'vue'
 const store = inject('store')
 
 function cancelInstall() {
+  if (store.pendingVersionInstall) {
+    const { packageName, installedVersion } = store.pendingVersionInstall
+    store.selectedVersions[packageName] = installedVersion || null
+    console.log('[VersionConfirmModal] Cancelled, reset selectedVersions[' + packageName + '] to', installedVersion)
+  }
   store.showVersionModal = false
   store.pendingVersionInstall = null
 }
