@@ -6,6 +6,8 @@ set ROOT_DIR=%SCRIPT_DIR%..
 set VENV_PYTHON=%ROOT_DIR%\.venv\Scripts\python.exe
 set SOURCE_FILE=%ROOT_DIR%\src\updater\main.py
 set OUTPUT_DIR=%ROOT_DIR%\dist
+set DIST_FOLDER=%OUTPUT_DIR%\updater.dist
+set ZIP_FILE=%OUTPUT_DIR%\updater.zip
 
 if not exist "%VENV_PYTHON%" (
     echo [ERROR] venv not found at %VENV_PYTHON%
@@ -34,7 +36,7 @@ echo Output : %OUTPUT_DIR%\updater.exe
 echo.
 
 "%VENV_PYTHON%" -m nuitka ^
-    --onefile ^
+    --standalone ^
     --mingw64 ^
     --disable-ccache ^
     --show-scons ^
@@ -54,4 +56,14 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo.
-echo Build successful: %OUTPUT_DIR%\updater.exe
+echo Renaming output folder...
+if exist "%DIST_FOLDER%" rmdir /s /q "%DIST_FOLDER%"
+move "%OUTPUT_DIR%\main.dist" "%DIST_FOLDER%"
+
+echo Packaging zip for distribution...
+if exist "%ZIP_FILE%" del "%ZIP_FILE%"
+powershell -Command "Compress-Archive -Path '%DIST_FOLDER%' -DestinationPath '%ZIP_FILE%' -Force"
+
+echo.
+echo Build successful: %ZIP_FILE%
+echo Standalone folder: %DIST_FOLDER%
