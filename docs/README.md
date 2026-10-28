@@ -13,11 +13,12 @@ A standalone package updater for Test Matrix microservices. Scans a network shar
 ## Usage
 
 ```bash
-updater.exe [--source <path>] [--venv <path>] [--packages pkg1 pkg2 ...] [--dry-run]
+updater.exe [--project <folder>] [--source <path>] [--venv <path>] [--packages pkg1 pkg2 ...] [--dry-run]
 ```
 
 ### Arguments
 
+- `--project <folder>` — **The folder to update** (its `venv\` and `updater.toml`). The exe itself may live anywhere. Without it, the nearest ancestor of the current directory that contains a venv or `updater.toml` is used, then the exe's own folder (legacy behaviour). See `docs/specs/target_resolution_spec.md`. The GUI takes the same flag and can also switch folders at runtime via the target bar.
 - `--source <path>` — Path to directory containing `.whl` files (default: `\\pnt52\研發本部_技術服務處\技術服務處\DS-TA\Test_Matrix\packages`)
 - `--venv <path>` — Path to Python virtual environment (auto-detected if not specified)
 - `--packages pkg1 pkg2 ...` — Specific packages to update (default: all managed packages)
@@ -38,7 +39,18 @@ updater.exe --venv C:\project\.venv
 
 # Dry-run with custom source
 updater.exe --source D:\packages --dry-run
+
+# One portable updater, several machines/projects
+updater.exe --project D:\Work\TestMatrix --dry-run
+updater_gui.exe --project D:\Work\TestMatrix
 ```
+
+### updater.toml encoding
+
+Save it as **UTF-8 without BOM**. Files saved as UTF-8 with BOM, UTF-16 or zh-TW
+ANSI (Big5/cp950) are detected automatically; an unparseable file no longer aborts
+the run — built-in defaults are used and the reason plus the detected encoding are
+shown in the GUI (log + target bar) and on stderr. See `docs/specs/config_encoding_spec.md`.
 
 ## Development
 
@@ -61,11 +73,19 @@ pip install -e ".[dev]"
 ### Building
 
 ```bash
-# Run build script
-scripts\build_updater.bat
+# CLI
+scripts\build_updater.bat        # -> dist\updater.dist\updater.exe (+ updater.zip)
 
-# Output: dist\updater.exe
+# GUI - builds both layouts
+scripts\build_gui.bat            # -> dist\updater_gui.dist\  (onedir, + updater_gui.zip)
+                                 # -> dist\onefile\updater_gui.exe (single file)
 ```
+
+The onefile build is tuned to survive antivirus heuristics: MSVC instead of forced
+MinGW64, full version-info metadata, a stable cached unpack directory
+(`{CACHE_DIR}/{COMPANY}/{PRODUCT}/{VERSION}`) instead of a random `%TEMP%\onefile_*`,
+and `--onefile-no-compression` (compressed self-extractors are what AV tends to flag).
+If a site still blocks the single file, ship the onedir folder instead.
 
 ### Testing
 
@@ -79,7 +99,11 @@ dist\updater.exe --dry-run
 
 ## Architecture
 
-- `src/updater/main.py` — Core updater logic
+- `src/updater/main.py` — CLI entry point
+- `src/updater/target.py` — resolves *which folder* is being updated (project root, config, venv, source); pure functions, no global state
+- `src/updater/config.py` — `updater.toml` loading incl. BOM / Big5 encoding recovery
+- `src/updater/core.py` — scan / version compare / pip install
+- `src/updater/gui/app.py` — pywebview bridge (`get_target`, `set_target`, `choose_target_folder`)
 - `src/updater/__init__.py` — Package metadata
 - `scripts/build_updater.bat` — Nuitka build automation
 - `dist/updater.exe` — Compiled standalone executable

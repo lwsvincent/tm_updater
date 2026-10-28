@@ -11,7 +11,7 @@ from pathlib import Path
 import webview
 
 from updater import get_version
-from updater.config import UpdaterConfig, find_config, load_config
+from updater.config import UpdaterConfig
 from packaging.version import Version
 
 from updater.core import (
@@ -21,25 +21,119 @@ from updater.core import (
     UPDATABLE_STATUSES,
     PackageStatus,
     check_updates,
-    find_venv_python,
+    clear_pip_cache,
     get_all_versions,
     get_installed_versions_batch,
     install_updates,
     scan_packages,
 )
 from updater.launcher import LauncherError, launch_executable, should_launch
+from updater.target import (
+    UpdateTarget,
+    TargetError,
+    resolve_source,
+    resolve_target,
+)
 
 
 class Api:
-    def __init__(self, config: UpdaterConfig, python_exe: Path | None) -> None:
+    def __init__(
+        self,
+        config: UpdaterConfig,
+        python_exe: Path | None,
+        target: UpdateTarget | None = None,
+    ) -> None:
         self._config = config
         self._python_exe = python_exe
+        self._target = target
         self._window: webview.Window | None = None
         self._update_lock = threading.Lock()
         self._auto_update_disabled = False
+        self._config_error_logged = False
 
     def _set_window(self, window: webview.Window) -> None:
         self._window = window
+
+    # --- target (folder to update) -------------------------------------
+
+    def _source_path(self) -> Path:
+        """whl source directory, resolved per target_resolution_spec section 6."""
+        return resolve_source(self._config)
+
+    def _apply_target(self, target: UpdateTarget) -> None:
+        """Hot-swap the folder being updated and drop stale pip data."""
+        self._target = target
+        self._config = target.config
+        self._python_exe = target.python_exe
+        clear_pip_cache()
+        self._auto_update_disabled = False
+        self._config_error_logged = False
+
+    def get_target(self) -> dict[str, object]:
+        """Current update target, for the GUI header."""
+        base = {
+            "project": "",
+            "venv": "",
+            "source": str(self._source_path()),
+            "config": str(self._config.config_dir),
+            "config_origin": "",
+            "config_error": self._config.parse_error,
+            "encoding": self._config.encoding,
+        }
+        if self._target is None:
+            base["error"] = "未解析到目標資料夾"
+            return base
+        venv = self._target.python_exe
+        base.update(
+            {
+                "project": str(self._target.project_root),
+                "venv": str(venv.parent.parent) if venv else "",
+                "config_origin": self._target.config_origin,
+                "error": "" if venv else "找不到 venv，請指定正確的專案資料夾",
+            }
+        )
+        return base
+
+    def set_target(self, project_path: str) -> dict[str, object]:
+        """
+        Point the updater at another project folder (typed in the GUI).
+
+        Returns the new target payload, or {"error": "..."} when the path is
+        unusable - the previous target stays active in that case.
+        """
+        exe_dir = Path(sys.argv[0]).resolve().parent
+        try:
+            target = resolve_target(project_path, exe_dir, Path.cwd())
+        except TargetError as exc:
+            self._push_log("error", f"目標設定失敗: {exc}")
+            return {"error": str(exc), "target": self.get_target()}
+
+        self._apply_target(target)
+        self._push_log("success", f"目標資料夾: {target.describe()}")
+        return {"error": None, "target": self.get_target()}
+
+    def choose_target_folder(self) -> dict[str, object]:
+        """
+        Open a native folder dialog and switch the target to the choice.
+
+        Returns {"cancelled": True} when the dialog is dismissed or the backend
+        has no folder dialog support; the caller then falls back to typing a path.
+        """
+        start_dir = ""
+        if self._target is not None:
+            start_dir = str(self._target.project_root)
+        try:
+            result = webview.create_file_dialog(
+                webview.FOLDER_DIALOG, directory=start_dir
+            )
+        except Exception as exc:
+            self._push_log("debug", f"Folder dialog unavailable: {exc}")
+            return {"cancelled": True, "reason": str(exc), "target": self.get_target()}
+
+        if not result:
+            return {"cancelled": True, "target": self.get_target()}
+        chosen = result[0] if isinstance(result, (list, tuple)) else result
+        return self.set_target(str(chosen))
 
     def _run_with_lock(self, target_func: Callable[[], None]) -> None:
         """Spawn a daemon thread that runs target_func with lock management."""
@@ -130,15 +224,22 @@ class Api:
         Returns:
             List of version strings sorted newest-first
         """
-        versions = get_all_versions(package_name, Path(self._config.source))
+        versions = get_all_versions(package_name, self._source_path())
         return versions
 
     def check_for_updates(self) -> None:
         self._run_with_lock(self._do_scan)
 
     def _do_scan(self) -> None:
+        if self._config.parse_error and not self._config_error_logged:
+            self._config_error_logged = True
+            self._push_log("error", self._config.parse_error)
         if self._python_exe is None:
-            self._push_log("error", "No venv Python found")
+            self._push_log(
+                "error",
+                "找不到 venv：請在上方「目標資料夾」指定專案，或用 "
+                "updater_gui.exe --project <專案資料夾> 啟動",
+            )
             return
 
         if self._auto_update_disabled:
@@ -149,7 +250,7 @@ class Api:
 
         self._push_log("info", f"Test Matrix Updater GUI (v{get_version()})")
         print(f"[DEBUG] Starting scan. Source: {self._config.source}")
-        available = scan_packages(Path(self._config.source))
+        available = scan_packages(self._source_path())
         print(f"[DEBUG] Available packages in source: {list(available.keys())}")
 
         installed_versions = get_installed_versions_batch(
@@ -184,7 +285,7 @@ class Api:
 
         print("[DEBUG] Starting update process (_do_update)...")
         self._push_log("info", f"Scanning source: {self._config.source}")
-        available = scan_packages(Path(self._config.source))
+        available = scan_packages(self._source_path())
 
         if not available:
             print("[DEBUG] Update failed: No whl files found")
@@ -211,7 +312,7 @@ class Api:
         result = install_updates(statuses, self._python_exe, on_progress=self._push_log)
 
         # Refresh package statuses to reflect updates in GUI
-        available_now = scan_packages(Path(self._config.source))
+        available_now = scan_packages(self._source_path())
         installed_now = get_installed_versions_batch(
             self._python_exe, self._config.packages
         )
@@ -270,7 +371,7 @@ class Api:
             return {"success": False, "error": "No venv Python found"}
 
         # Only suppress auto-update when installing an older (non-latest) version.
-        all_versions = get_all_versions(package_name, Path(self._config.source))
+        all_versions = get_all_versions(package_name, self._source_path())
         is_downgrade = bool(all_versions) and Version(version) < Version(all_versions[0])
         print(
             f"[DEBUG] install_versioned_package: version={version}, "
@@ -297,7 +398,7 @@ class Api:
             # Build a PackageStatus for the target package so install_updates
             # knows what to operate on.  We scan for the current installed version
             # to populate the status faithfully.
-            available = scan_packages(Path(self._config.source))
+            available = scan_packages(self._source_path())
             installed_versions = get_installed_versions_batch(
                 self._python_exe, self._config.packages
             )
@@ -333,11 +434,11 @@ class Api:
                 self._python_exe,
                 on_progress=self._push_log,
                 target_version=version,
-                source_path=Path(self._config.source),
+                source_path=self._source_path(),
             )
 
             # Refresh package status in the GUI after installation
-            available_now = scan_packages(Path(self._config.source))
+            available_now = scan_packages(self._source_path())
             installed_now = get_installed_versions_batch(
                 self._python_exe, self._config.packages
             )
@@ -391,13 +492,25 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Test Matrix Updater GUI")
     parser.add_argument("--dev", action="store_true", help="Load from Vite dev server")
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Folder to update (its venv and updater.toml).  The exe itself "
+        "may live anywhere; the GUI can also switch folders at runtime.",
+    )
     args = parser.parse_args()
 
-    config = load_config(find_config())
-    exe_dir = Path(__file__).parent
-    python_exe = find_venv_python(None, exe_dir, config.venv_names)
+    # sys.argv[0] is the exe (frozen) or this script (dev); its parent is the
+    # directory the legacy find_config()/find_venv_python() anchored on.
+    exe_dir = Path(sys.argv[0]).resolve().parent
+    try:
+        target = resolve_target(args.project, exe_dir, Path.cwd())
+    except TargetError as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        sys.exit(2)
 
-    api = Api(config, python_exe)
+    print(f"[DEBUG] {target.describe()}")
+    api = Api(target.config, target.python_exe, target)
 
     if args.dev:
         url = "http://localhost:15173"

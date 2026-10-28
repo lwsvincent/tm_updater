@@ -11,6 +11,7 @@
         </span>
       </div>
     </header>
+    <TargetBar />
     <div class="app-body">
       <div class="panel-left">
         <PackageTable />
@@ -27,6 +28,7 @@
 <script setup>
 import { inject, computed } from 'vue'
 import PackageTable from './components/PackageTable.vue'
+import TargetBar from './components/TargetBar.vue'
 import ActionPanel from './components/ActionPanel.vue'
 import LogConsole from './components/LogConsole.vue'
 import VersionConfirmModal from './components/VersionConfirmModal.vue'

@@ -14,6 +14,7 @@ const store = reactive({
   pendingVersionInstall: null, // {packageName: string, version: string, installedVersion: string|null}
   versionsMap: {},       // { package_name: ["X.Y.Z", "A.B.C", ...] } sorted newest-first
   selectedVersions: {},  // { package_name: "X.Y.Z" } user's current selection
+  target: {},            // { project, venv, source, config, config_origin, error }
 })
 
 let configResolver;
@@ -98,8 +99,53 @@ window.updatePackages = (packages) => {
   store.packages = packages
 }
 
+async function loadVersions(packages) {
+  if (!window.pywebview || !packages || !packages.length) return
+  console.log('[DEBUG] Loading versions for', packages.length, 'package(s)...')
+  await Promise.all(packages.map(async (pkg) => {
+    try {
+      const versions = await window.pywebview.api.get_versions(pkg.name);
+      store.versionsMap[pkg.name] = versions || [];
+      // Default selection: first entry is newest (backend sorts newest-first)
+      store.selectedVersions[pkg.name] = (versions && versions.length > 0)
+        ? versions[0]
+        : (pkg.available || null);
+      console.log('[DEBUG] Versions for', pkg.name, ':', versions);
+    } catch (err) {
+      console.warn('[DEBUG] Failed to load versions for', pkg.name, ':', err);
+      store.versionsMap[pkg.name] = [];
+      store.selectedVersions[pkg.name] = pkg.available || null;
+    }
+  }));
+}
+
+// After the folder being updated changes, everything derived from it is stale.
+async function reloadTarget() {
+  if (!window.pywebview) return
+  store.packages = []
+  store.versionsMap = {}
+  store.selectedVersions = {}
+  store.updateComplete = false
+  store.updateResult = null
+  const packages = await window.pywebview.api.get_packages()
+  if (packages && packages.length) {
+    store.packages = packages
+    await loadVersions(packages)
+  }
+  store.isScanning = true
+  window.pywebview.api.check_for_updates()
+}
+
 window.addEventListener('pywebviewready', async () => {
   console.log('[DEBUG] pywebviewready triggered');
+
+  // 0. Which folder are we updating? (exe may live anywhere)
+  try {
+    store.target = await window.pywebview.api.get_target()
+    console.log('[DEBUG] Received target from backend:', store.target)
+  } catch (err) {
+    console.warn('[DEBUG] get_target() failed:', err)
+  }
   
   // 1. Get config first
   const config = await window.pywebview.api.get_config()
@@ -114,24 +160,7 @@ window.addEventListener('pywebviewready', async () => {
   }
 
   // 3. Load all versions for each package in parallel (fastest at cold start)
-  if (packages && packages.length) {
-    console.log('[DEBUG] Loading versions for', packages.length, 'package(s)...');
-    await Promise.all(packages.map(async (pkg) => {
-      try {
-        const versions = await window.pywebview.api.get_versions(pkg.name);
-        store.versionsMap[pkg.name] = versions || [];
-        // Default selection: first entry is newest (backend sorts newest-first)
-        store.selectedVersions[pkg.name] = (versions && versions.length > 0)
-          ? versions[0]
-          : (pkg.available || null);
-        console.log('[DEBUG] Versions for', pkg.name, ':', versions);
-      } catch (err) {
-        console.warn('[DEBUG] Failed to load versions for', pkg.name, ':', err);
-        store.versionsMap[pkg.name] = [];
-        store.selectedVersions[pkg.name] = pkg.available || null;
-      }
-    }));
-  }
+  await loadVersions(packages)
 
   // 4. NOW trigger the scan from frontend
   console.log('[DEBUG] Triggering check_for_updates from frontend');
@@ -141,4 +170,5 @@ window.addEventListener('pywebviewready', async () => {
 
 const app = createApp(App)
 app.provide('store', store)
+app.provide('reloadTarget', reloadTarget)
 app.mount('#app')

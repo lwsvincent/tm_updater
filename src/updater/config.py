@@ -14,6 +14,18 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# Fallbacks for updater.toml written by Windows editors: Notepad's "ANSI" on a
+# zh-TW machine is cp950 (Big5), and "UTF-8" from some editors carries a BOM
+# which tomllib rejects.  Order matters - UTF-8 first, then the locale default.
+_ENCODING_FALLBACKS = ("cp950", "cp1252")
+_BOM_ENCODINGS = (
+    (b"\xff\xfe\x00\x00", "utf-32-le"),
+    (b"\x00\x00\xfe\xff", "utf-32-be"),
+    (b"\xff\xfe", "utf-16-le"),
+    (b"\xfe\xff", "utf-16-be"),
+    (b"\xef\xbb\xbf", "utf-8-sig"),
+)
+
 _BUILTIN_SOURCE = r"\\pnt52\研發本部_技術服務處\技術服務處\DS-TA\Test_Matrix\packages"
 
 _BUILTIN_PACKAGES = [
@@ -70,19 +82,64 @@ class UpdaterConfig:
     launcher: LauncherConfig = field(default_factory=LauncherConfig)
     gui: GuiConfig = field(default_factory=GuiConfig)
     config_dir: Path = field(default_factory=lambda: Path("."))
+    # Non-empty when updater.toml could not be decoded/parsed; the updater then
+    # runs on built-in defaults instead of dying (a GUI exe has no console).
+    parse_error: str = ""
+    encoding: str = ""
+
+
+def read_toml_text(toml_path: Path) -> tuple[str, str]:
+    """
+    Decode updater.toml to text, returning (text, encoding_used).
+
+    Handles BOM-prefixed UTF-8/UTF-16/UTF-32 and the zh-TW ANSI (cp950/Big5)
+    files Notepad produces.  Raises ValueError when nothing decodes.
+    """
+    raw = toml_path.read_bytes()
+    for bom, encoding in _BOM_ENCODINGS:
+        if raw.startswith(bom):
+            # Strip the BOM bytes: utf-16/utf-32 codecs would otherwise keep
+            # U+FEFF as the first character, which tomllib rejects.
+            return raw[len(bom):].decode(encoding), encoding
+    try:
+        return raw.decode("utf-8"), "utf-8"
+    except UnicodeDecodeError:
+        pass
+    for encoding in _ENCODING_FALLBACKS:
+        try:
+            return raw.decode(encoding), encoding
+        except UnicodeDecodeError:
+            continue
+    raise ValueError(
+        f"updater.toml 編碼不支援（已試 UTF-8/BOM/{'/'.join(_ENCODING_FALLBACKS)}）"
+    )
 
 
 def load_config(toml_path: Path) -> UpdaterConfig:
     """
     Load UpdaterConfig from a TOML file.
+
+    A malformed or undecodable file does not abort the run: it is reported
+    (stderr + UpdaterConfig.parse_error) and built-in defaults are used.
     """
     if not toml_path.exists():
         print(f"[DEBUG] Config not found at: {toml_path}, using defaults")
         return UpdaterConfig(config_dir=toml_path.parent.resolve())
 
     print(f"[DEBUG] Loading config from: {toml_path.resolve()}")
-    with open(toml_path, "rb") as f:
-        raw = tomllib.load(f)
+    parse_error = ""
+    encoding = ""
+    try:
+        text, encoding = read_toml_text(toml_path)
+        if encoding != "utf-8":
+            print(f"[DEBUG] updater.toml decoded as {encoding}")
+        raw = tomllib.loads(text)
+    except (ValueError, tomllib.TOMLDecodeError, OSError) as exc:
+        parse_error = (
+            f"updater.toml 無法解析，已改用內建預設值：{exc}（檔案：{toml_path}）"
+        )
+        print(f"[ERROR] {parse_error}", file=sys.stderr)
+        raw = {}
 
     updater_raw = raw.get("updater", {})
     launcher_raw = raw.get("launcher", {})
@@ -124,6 +181,8 @@ def load_config(toml_path: Path) -> UpdaterConfig:
         launcher=launcher,
         gui=gui,
         config_dir=toml_path.parent.resolve(),
+        parse_error=parse_error,
+        encoding=encoding,
     )
 
 

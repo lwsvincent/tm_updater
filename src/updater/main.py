@@ -7,16 +7,19 @@ compares against installed versions, and installs newer packages
 into the local venv.
 
 Usage:
-  updater.exe [--source <path>] [--venv <path>] [--packages pkg1 pkg2 ...]
-              [--dry-run]
+  updater.exe [--project <path>] [--source <path>] [--venv <path>]
+              [--packages pkg1 pkg2 ...] [--dry-run]
+
+  --project selects the folder to update (its venv and updater.toml).  The
+  executable itself may live anywhere; see docs/specs/target_resolution_spec.md
 """
 
 import argparse
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from updater import get_version
-from updater.config import find_config, load_config
 from updater.core import (
     check_updates,
     find_venv_python,
@@ -25,6 +28,13 @@ from updater.core import (
     scan_packages,
 )
 from updater.launcher import LauncherError, launch_executable, should_launch
+from updater.target import (
+    UpdateTarget,
+    TargetError,
+    resolve_source,
+    resolve_target,
+    resolve_venv_arg,
+)
 
 
 def _cli_progress(level: str, message: str) -> None:
@@ -32,15 +42,39 @@ def _cli_progress(level: str, message: str) -> None:
     print(f"{prefix.get(level, '  ')}{message}")
 
 
+def _resolve_cli_target(args: argparse.Namespace, exe_dir: Path) -> UpdateTarget:
+    """Resolve the target folder per target_resolution_spec (fails loudly)."""
+    try:
+        target = resolve_target(args.project, exe_dir, Path.cwd())
+        if args.venv:
+            python_exe = resolve_venv_arg(args.venv, target.config.venv_names)
+            target = replace(target, python_exe=python_exe)
+        elif target.python_exe is None:
+            # Legacy candidate chain, kept for installations that predate --project.
+            target = replace(
+                target,
+                python_exe=find_venv_python(None, exe_dir, target.config.venv_names),
+            )
+        return target
+    except TargetError as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        sys.exit(2)
+
+
 def main() -> None:
     print(f"Test Matrix Updater (v{get_version()})")
-    config = load_config(find_config())
 
     parser = argparse.ArgumentParser(
         description="Test Matrix Package Updater - installs .whl packages from a network share"
     )
     parser.add_argument(
-        "--source", default=config.source, help="Path to whl source directory"
+        "--project",
+        default=None,
+        help="Folder to update (its venv and updater.toml). Defaults to the "
+        "nearest project marker from the current directory.",
+    )
+    parser.add_argument(
+        "--source", default=None, help="Path to whl source directory"
     )
     parser.add_argument("--venv", default=None, help="Path to Python venv directory")
     parser.add_argument(
@@ -58,21 +92,28 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    source_path = Path(args.source)
     exe_dir = Path(__file__).parent
+    target = _resolve_cli_target(args, exe_dir)
+    config = target.config
+    python_exe = target.python_exe
+    source_path = Path(args.source) if args.source else resolve_source(config)
+    if config.parse_error:
+        print(f"[WARNING] {config.parse_error}")
 
     print(f"Source : {source_path}")
     if args.dry_run:
         print("Mode   : dry-run (no changes will be made)")
     print("-" * 55)
 
-    python_exe = find_venv_python(args.venv, exe_dir, config.venv_names)
     if python_exe is None:
         print(
-            "[ERROR] Cannot find venv Python. Use --venv <path> to specify the venv directory."
+            "[ERROR] Cannot find venv Python. Use --project <folder> or "
+            "--venv <path> to specify the folder to update."
         )
         sys.exit(1)
     print(f"Venv   : {python_exe.parent.parent}")
+    if args.debug:
+        print(f"Target : {target.describe()}")
     print("-" * 55)
 
     print("Scanning source for available packages...")

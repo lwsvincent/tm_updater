@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-28
+
+### Added
+- `--project <folder>` on both CLI and GUI: the updater can now live anywhere and still update a chosen project folder (spec: `docs/specs/target_resolution_spec.md`)
+- `src/updater/target.py`: single injectable resolver for project root / config / venv / source, unit-tested without touching the machine
+- GUI target bar (`TargetBar.vue`): shows which folder, venv and whl source are in effect; type a path or pick one with a folder dialog, then everything re-scans
+- `scripts/build_gui.bat` now also produces an antivirus-friendly **onefile** build (`dist\onefile\updater_gui.exe`) next to the onedir folder build
+- exe version metadata (`--product-name/--company-name/--product-version`) and MSVC toolchain by default instead of forcing MinGW64
+- Specs: `docs/specs/target_resolution_spec.md`, `docs/specs/config_encoding_spec.md`
+
+### Fixed
+- `updater.toml` saved as UTF-8 with BOM, UTF-16, or zh-TW ANSI/Big5 (cp950) no longer breaks startup; a bad file is reported in the GUI log/target bar and built-in defaults are used (spec: `docs/specs/config_encoding_spec.md`)
+- UNC `source` paths (`\\pnt52\...`) are no longer treated as relative — `Path.is_absolute()` returns False for UNC on Python 3.11
+- GUI no longer dies silently when no venv is found: it logs how to point at a project folder
+
 ## [1.4.0] - 2026-04-24
 
 ### Added
@@ -73,7 +88,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Migrated updater.py from test_matrix root to independent Updater sub-project
 
-[Unreleased]: https://github.com/lwsvincent/tm_updater/compare/updater-1.4.0...HEAD
+[Unreleased]: https://github.com/lwsvincent/tm_updater/compare/updater-1.5.0...HEAD
+[1.5.0]: https://github.com/lwsvincent/tm_updater/compare/updater-1.4.0...updater-1.5.0
 [1.4.0]: https://github.com/lwsvincent/tm_updater/compare/updater-1.3.0...updater-1.4.0
 [1.3.0]: https://github.com/lwsvincent/tm_updater/compare/updater-1.2.0...updater-1.3.0
 [1.2.0]: https://github.com/testmatrix/test-matrix/compare/updater-1.1.0...updater-1.2.0
